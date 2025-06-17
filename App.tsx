@@ -42,9 +42,9 @@ const InitialCVGenerator: React.FC<InitialCVGeneratorProps> = ({ onCvGenerated, 
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-8">
             <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg text-center">
                 <WandSparklesIcon className="w-16 h-16 text-blue-600 mx-auto mb-6" />
-                <h2 className="text-3xl font-bold text-slate-800 mb-4">Let's Craft Your CV!</h2>
+                <h2 className="text-3xl font-bold text-slate-800 mb-4">Optimize Your CV with JD2CV!</h2>
                 <p className="text-slate-600 mb-6">
-                    Start by providing your desired job title or a full job description. Gemini AI will help create a foundational CV for you.
+                    JD2CV - An Artificially intelligent CV tool that helps you optimize your CV/Resume instantly for every new job description you apply. Got different job titles, different tasks, different skillset required? This tool is your instant go to friend - no time waste. Start by providing a job title or description below.
                 </p>
                 
                 <div className="mb-6">
@@ -102,7 +102,7 @@ const InitialCVGenerator: React.FC<InitialCVGeneratorProps> = ({ onCvGenerated, 
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg text-lg flex items-center justify-center gap-3 transition-colors duration-150 disabled:opacity-70"
                     >
                         {isLoading ? <LoadingSpinner size="w-6 h-6" /> : <SparklesIcon className="w-6 h-6" />}
-                        {isLoading ? 'Generating Your CV...' : 'Generate CV with AI'}
+                        {isLoading ? 'Optimizing Your CV...' : 'Optimize CV with AI'}
                     </button>
                 </form>
             </div>
@@ -439,7 +439,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen font-sans antialiased">
       <header className="bg-slate-800 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Gemini CV Theme Editor</h1>
+        <h1 className="text-xl font-semibold">JD2CV</h1>
         <button
             onClick={handleDownloadPDF}
             disabled={isPdfGenerating || geminiStatus === GeminiRequestStatus.LOADING}
@@ -503,14 +503,20 @@ const App: React.FC = () => {
             </div>
         </main>
       </div>
+      <footer className="bg-slate-800 text-white text-xs p-3 text-center">
+        <p>
+          <strong>Privacy Notice:</strong> To provide and improve our services, JD2CV may share your data with third-party AI tools to generate and optimize your CV.
+          By using JD2CV, you consent to this data processing. We are committed to ensuring our practices are UK and EU friendly.
+        </p>
+      </footer>
        {(geminiStatus === GeminiRequestStatus.LOADING || isPdfGenerating) && (
           <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" aria-live="assertive" role="alertdialog">
               <LoadingSpinner 
                 message={
                     isPdfGenerating ? "Generating PDF..." : 
-                    activeGeminiAction === 'tailor_cv' ? "Gemini is tailoring your CV..." :
-                    activeGeminiAction === 'initial_cv_title' || activeGeminiAction === 'initial_cv_jd' ? "Gemini is crafting your initial CV..." :
-                    (geminiStatus === GeminiRequestStatus.LOADING ? "Gemini is thinking..." : "Processing...")
+                    activeGeminiAction === 'tailor_cv' ? "JD2CV AI is tailoring your CV..." :
+                    activeGeminiAction === 'initial_cv_title' || activeGeminiAction === 'initial_cv_jd' ? "JD2CV AI is crafting your initial CV..." :
+                    (geminiStatus === GeminiRequestStatus.LOADING ? "JD2CV AI is thinking..." : "Processing...")
                 } 
                 size="w-12 h-12" 
               />

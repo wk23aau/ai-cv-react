@@ -299,11 +299,11 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
         
         {sectionKey === 'experience' && (
             <div className="mb-4 p-3 border border-dashed border-blue-400 rounded-md bg-blue-50">
-                <label htmlFor="newExperiencePrompt" className="block text-sm font-medium text-gray-700 mb-1">New Experience Entry with Gemini</label>
+                <label htmlFor="newExperiencePrompt" className="block text-sm font-medium text-gray-700 mb-1">New Experience Entry with JD2CV AI</label>
                 <input
                     id="newExperiencePrompt"
                     type="text"
-                    placeholder="Job title or keywords for new Gemini entry..."
+                    placeholder="Job title or keywords for new AI entry..."
                     value={newExperiencePrompt}
                     onChange={(e) => setNewExperiencePrompt(e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm mb-2"
@@ -314,7 +314,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                     className="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center justify-center gap-1 disabled:opacity-60"
                 >
                     {geminiStatus === GeminiRequestStatus.LOADING && activeGeminiAction === `new_experience_entry_${cvData.experience.length}` ? <LoadingSpinner size="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
-                    Generate New Experience
+                    Generate New Experience with AI
                 </button>
             </div>
         )}
@@ -357,7 +357,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                         <div className="mt-2 p-2 border-t border-gray-200">
                             <input 
                                 type="text"
-                                placeholder={`Keywords for Gemini to generate ${field.label}...`}
+                                placeholder={`Keywords for AI to generate ${field.label}...`}
                                 value={geminiPrompts[fieldKeyBase] || ''}
                                 onChange={(e) => handleGeminiPromptChange(fieldKeyBase, e.target.value)}
                                 className="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-xs mb-1"
@@ -383,7 +383,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                                 className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded-md text-xs flex items-center gap-1 w-full justify-center"
                             >
                                 {geminiStatus === GeminiRequestStatus.LOADING && activeGeminiAction === fieldKeyBase ? <LoadingSpinner size="w-3 h-3" /> : <SparklesIcon className="w-3 h-3" />}
-                                Generate {field.label} with AI
+                                Generate {field.label} with JD2CV AI
                             </button>
                         </div>
                     )}
@@ -420,7 +420,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
           value={jobDescriptionForTailoring}
           onChange={(e) => onJobDescriptionChange(e.target.value)}
           rows={6}
-          placeholder="Paste the full job description to help Gemini tailor your CV..."
+          placeholder="Paste the full job description to help AI tailor your CV..."
         />
         <div className="mt-3 mb-3">
             <label htmlFor="applyDetailedExperienceUpdatesToggle" className="flex items-center text-sm text-gray-700 cursor-pointer">
@@ -440,7 +440,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
           className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm flex items-center justify-center gap-1 mt-2 disabled:opacity-60"
         >
           {geminiStatus === GeminiRequestStatus.LOADING && activeGeminiAction === 'tailor_cv' ? <LoadingSpinner size="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
-          Tailor CV with Gemini
+          Tailor CV with JD2CV AI
         </button>
       </div>
       
@@ -504,7 +504,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
         <div className="mt-2">
             <input 
                 type="text"
-                placeholder="Keywords for Gemini (e.g., 'dynamic leader, 10 yrs exp')"
+                placeholder="Keywords for AI (e.g., 'dynamic leader, 10 yrs exp')"
                 value={geminiPrompts['summary'] || ''}
                 onChange={(e) => handleGeminiPromptChange('summary', e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm mb-1"
@@ -515,7 +515,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                 className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center gap-1"
             >
                {geminiStatus === GeminiRequestStatus.LOADING && activeGeminiAction === 'summary' ? <LoadingSpinner size="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
-               Generate with Gemini
+               Generate with JD2CV AI
             </button>
         </div>
       </div>

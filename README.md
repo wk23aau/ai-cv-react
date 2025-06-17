@@ -1,7 +1,9 @@
-# AI CV Editor
+# JD2CV - AI CV Optimizer
+
+JD2CV is an Artificially Intelligent CV tool that helps you optimize your CV/Resume instantly for every new job description you apply.
 
 ## Project Overview
-This project is an AI-powered CV editor that helps users create and tailor their resumes with the assistance of generative AI. Its purpose is to simplify and enhance the CV writing process, making it easier for users to craft compelling and targeted resumes.
+JD2CV is an AI-powered CV optimization tool designed to help users create and tailor their resumes effectively with the assistance of generative AI. Its purpose is to simplify and enhance the CV writing process, making it easier for users to craft compelling and targeted resumes for each job application.
 
 ## Project Structure
 - `components/`: Contains React UI components.
@@ -101,7 +103,7 @@ Ensure the `GEMINI_API_KEY` is handled appropriately in your deployment environm
 - TypeScript
 - Vite
 - Tailwind CSS
-- Google Gemini AI
+- AI Models (initially Google Gemini)
 
 ## Running with Docker
 
