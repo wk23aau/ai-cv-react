@@ -10,7 +10,7 @@ const getAuthToken = (): string | null => {
 
 import React, { useState, useCallback, useEffect, startTransition } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { trackEvent } from '../../services/analyticsService';
+import { trackEvent } from '../services/analyticsService';
 import { CVData, ThemeOptions, GeminiRequestStatus, AutofillTarget, ExperienceEntry, CVSection, SkillEntry, EducationEntry, TailoredCVUpdate, SectionContentType as SectionGenType } from '../types'; // Renamed SectionContentType to avoid conflict
 import { INITIAL_CV_DATA, DEFAULT_THEME, PaletteIcon, DocumentTextIcon, DownloadIcon, SparklesIcon, WandSparklesIcon } from '../constants';
 import CVPreview from '../../components/CVPreview';
