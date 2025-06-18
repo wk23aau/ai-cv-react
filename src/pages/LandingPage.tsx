@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SparklesIcon, WandSparklesIcon } from '../constants'; // Assuming constants.tsx is in src/
-import { trackEvent } from '../../services/analyticsService';
+import { trackEvent } from '../services/analyticsService';
 
 // Define a type for the template data received from API
 interface CVTemplate {
