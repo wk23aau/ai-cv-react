@@ -1,17 +1,20 @@
-
 import React from 'react';
 import { CVData, ThemeOptions, PersonalInfo, ExperienceEntry, EducationEntry, SkillEntry } from '../types';
+import ClassicTemplate from './cv_templates/ClassicTemplate';
+import ModernTemplate from './cv_templates/ModernTemplate';
 
 interface CVPreviewProps {
   cvData: CVData;
   theme: ThemeOptions;
+  templateId?: string | number | null; // Added templateId
 }
 
-const SectionTitle: React.FC<{ title: string; primaryColor: string }> = ({ title, primaryColor }) => (
+// Exporting section components for use in templates (temporary workaround)
+export const SectionTitle: React.FC<{ title: string; primaryColor: string }> = ({ title, primaryColor }) => (
   <h2 className={`text-xl font-bold border-b-2 border-${primaryColor} mb-2 pb-1 text-${primaryColor}`}>{title.toUpperCase()}</h2>
 );
 
-const getShortLinkText = (url: string, type: 'linkedin' | 'github' | 'portfolio'): string => {
+export const getShortLinkText = (url: string, type: 'linkedin' | 'github' | 'portfolio'): string => {
     if (!url) return '';
     try {
         let cleanUrl = url.trim();
@@ -56,8 +59,7 @@ const getShortLinkText = (url: string, type: 'linkedin' | 'github' | 'portfolio'
     return url; 
 };
 
-
-const PersonalInfoSection: React.FC<{ info: PersonalInfo; theme: ThemeOptions }> = ({ info, theme }) => {
+export const PersonalInfoSection: React.FC<{ info: PersonalInfo; theme: ThemeOptions }> = ({ info, theme }) => {
   const hasContactInfo = info.showPhone || info.showEmail || info.showLinkedin || info.showGithub || info.showPortfolio;
   const displayPortrait = info.showPortrait && info.portraitUrl;
 
@@ -108,20 +110,18 @@ const PersonalInfoSection: React.FC<{ info: PersonalInfo; theme: ThemeOptions }>
           </p>
         )}
       </div>
-      {/* QR Code display removed from here */}
     </div>
   );
 };
 
-
-const SummarySection: React.FC<{ summary: string; theme: ThemeOptions }> = ({ summary, theme }) => (
+export const SummarySection: React.FC<{ summary: string; theme: ThemeOptions }> = ({ summary, theme }) => (
   <div className="mb-4">
     <SectionTitle title="Summary" primaryColor={theme.primaryColor} />
     <p className={`text-sm text-${theme.textColor} leading-relaxed`}>{summary}</p>
   </div>
 );
 
-const ExperienceItem: React.FC<{ exp: ExperienceEntry; theme: ThemeOptions }> = ({ exp, theme }) => (
+export const ExperienceItem: React.FC<{ exp: ExperienceEntry; theme: ThemeOptions }> = ({ exp, theme }) => (
   <div className="mb-3">
     <h3 className={`text-md font-semibold text-${theme.textColor}`}>{exp.jobTitle}</h3>
     <div className="flex justify-between items-center">
@@ -135,7 +135,7 @@ const ExperienceItem: React.FC<{ exp: ExperienceEntry; theme: ThemeOptions }> = 
   </div>
 );
 
-const EducationItem: React.FC<{ edu: EducationEntry; theme: ThemeOptions }> = ({ edu, theme }) => (
+export const EducationItem: React.FC<{ edu: EducationEntry; theme: ThemeOptions }> = ({ edu, theme }) => (
   <div className="mb-3">
     <h3 className={`text-md font-semibold text-${theme.textColor}`}>{edu.degree}</h3>
     <div className="flex justify-between items-center">
@@ -151,69 +151,42 @@ const EducationItem: React.FC<{ edu: EducationEntry; theme: ThemeOptions }> = ({
   </div>
 );
 
-const SkillsSectionItem: React.FC<{ skillItem: SkillEntry; theme: ThemeOptions }> = ({ skillItem, theme }) => (
+export const SkillsSectionItem: React.FC<{ skillItem: SkillEntry; theme: ThemeOptions }> = ({ skillItem, theme }) => (
   <div className="mb-2">
     <h4 className={`text-sm font-semibold text-${theme.secondaryColor}`}>{skillItem.category}:</h4>
     <p className={`text-sm text-${theme.textColor}`}>{skillItem.skills.join(', ')}</p>
   </div>
 );
 
-const CVPreview: React.FC<CVPreviewProps> = ({ cvData, theme }) => {
+const CVPreview: React.FC<CVPreviewProps> = ({ cvData, theme, templateId }) => {
   const scale = theme.previewScale || 1;
-  // Ensure background color for PDF is explicitly set.
-  // Tailwind classes `bg-white` etc. might not be inherited perfectly by html2pdf if the root element isn't what it expects.
-  // Using style variables for theme colors can be more robust for PDF generation.
-  const cvStyle: React.CSSProperties = {
-    width: '210mm',
-    minHeight: '297mm',
-    padding: '1in' // Standard A4 padding
-    // backgroundColor is now handled by the className `bg-${theme.backgroundColor}` on the div below
-    // and by html2pdf options for the PDF itself.
-  };
 
-  if (theme.backgroundColor.includes('-')) {
-    // If it's a Tailwind class like 'blue-500', we can't directly use it in `style`.
-    // This part is tricky if we don't map Tailwind names to hex. For now, rely on `bg-${theme.backgroundColor}` class.
-    // The id="cv-content-formatted" div might need the class `bg-${theme.backgroundColor}` too for consistency.
+  let templateToRender;
+  // Default to 'classic' if templateId is null, undefined, or explicitly 'classic' or 1 (from seeded data)
+  // The seeded backend data uses string IDs 'classic' and 'modern' for templates, but IDs from DB are numbers.
+  // So, we check for both numeric and string versions.
+  const templateIdStr = String(templateId).toLowerCase();
+
+  if (templateIdStr === 'modern' || templateIdStr === '2') {
+    templateToRender = <ModernTemplate cvData={cvData} theme={theme} />;
+  } else { // Default to Classic for 'classic', '1', or any other/undefined value
+    templateToRender = <ClassicTemplate cvData={cvData} theme={theme} />;
   }
-
 
   return (
     <div 
-        className={`p-6 shadow-lg overflow-y-auto bg-${theme.backgroundColor} ${theme.fontFamily}`} 
-        style={{ transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
+        className={`p-6 shadow-lg overflow-y-auto bg-${theme.backgroundColor}`} // Outer div for editor UI scaling & bg
+        style={{
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            transition: 'transform 0.2s ease-out',
+            width: (210 * scale) + 'mm', /* Adjust container width based on scale */
+            minHeight: (297 * scale) + 'mm' /* Adjust container minHeight based on scale */
+        }}
         aria-label="CV Preview Area"
     >
-      <div 
-        id="cv-content-formatted" 
-        className={`mx-auto ${theme.textColor} bg-${theme.backgroundColor} [&>:last-child]:mb-0`} // Added [&>:last-child]:mb-0
-        style={cvStyle}
-      >
-        <PersonalInfoSection info={cvData.personalInfo} theme={theme} />
-        
-        {cvData.summary && <SummarySection summary={cvData.summary} theme={theme} />}
-
-        {cvData.experience.length > 0 && (
-          <div className="mb-4">
-            <SectionTitle title="Experience" primaryColor={theme.primaryColor} />
-            {cvData.experience.map(exp => <ExperienceItem key={exp.id} exp={exp} theme={theme} />)}
-          </div>
-        )}
-
-        {cvData.education.length > 0 && (
-          <div className="mb-4">
-            <SectionTitle title="Education" primaryColor={theme.primaryColor} />
-            {cvData.education.map(edu => <EducationItem key={edu.id} edu={edu} theme={theme} />)}
-          </div>
-        )}
-
-        {cvData.skills.length > 0 && (
-          <div className="mb-4">
-            <SectionTitle title="Skills" primaryColor={theme.primaryColor} />
-            {cvData.skills.map(skillCat => <SkillsSectionItem key={skillCat.id} skillItem={skillCat} theme={theme} />)}
-          </div>
-        )}
-      </div>
+      {/* The actual template content with A4 styling is now inside ClassicTemplate/ModernTemplate */}
+      {templateToRender}
     </div>
   );
 };

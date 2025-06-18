@@ -1,10 +1,11 @@
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import React, { Suspense, lazy, useEffect } from 'react'; // Added useEffect
+import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from 'react-router-dom'; // Added useLocation
 import MainHeader from './components/layout/MainHeader';
 import MainFooter from './components/layout/MainFooter';
 import LoadingSpinner from './components/shared/LoadingSpinner'; // Assuming this exists
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
+import { trackPageView } from './services/analyticsService'; // Added import
 
 // Lazy load pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -17,6 +18,16 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 // Auth context/state would typically be managed here or in a dedicated provider
 // For now, just basic routing structure.
+
+const AnalyticsPageViewTracker: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location]);
+
+  return null; // This component does not render anything
+};
 
 const AppLayout: React.FC = () => {
   return (
@@ -35,6 +46,7 @@ const AppLayout: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
+      <AnalyticsPageViewTracker /> {/* Added page view tracker */}
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<LandingPage />} />

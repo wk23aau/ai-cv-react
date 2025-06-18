@@ -10,14 +10,15 @@ const getAuthToken = (): string | null => {
 
 import React, { useState, useCallback, useEffect, startTransition } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { CVData, ThemeOptions, GeminiRequestStatus, AutofillTarget, ExperienceEntry, CVSection, SkillEntry, EducationEntry, TailoredCVUpdate, SectionContentType as SectionGenType } from './types'; // Renamed SectionContentType to avoid conflict
-import { INITIAL_CV_DATA, DEFAULT_THEME, PaletteIcon, DocumentTextIcon, DownloadIcon, SparklesIcon, WandSparklesIcon } from './constants';
-import CVPreview from './components/CVPreview';
-import ThemeSelectorPanel from './components/panels/ThemeSelectorPanel';
-import ContentEditorPanel from './components/panels/ContentEditorPanel';
-import LoadingSpinner from './components/shared/LoadingSpinner';
-import ErrorMessage from './components/shared/ErrorMessage';
-import { generateCVContent } from './services/geminiService';
+import { trackEvent } from '../../services/analyticsService';
+import { CVData, ThemeOptions, GeminiRequestStatus, AutofillTarget, ExperienceEntry, CVSection, SkillEntry, EducationEntry, TailoredCVUpdate, SectionContentType as SectionGenType } from '../types'; // Renamed SectionContentType to avoid conflict
+import { INITIAL_CV_DATA, DEFAULT_THEME, PaletteIcon, DocumentTextIcon, DownloadIcon, SparklesIcon, WandSparklesIcon } from '../constants';
+import CVPreview from '../../components/CVPreview';
+import ThemeSelectorPanel from '../../components/panels/ThemeSelectorPanel';
+import ContentEditorPanel from '../../components/panels/ContentEditorPanel';
+import LoadingSpinner from '../../components/shared/LoadingSpinner';
+import ErrorMessage from '../../components/shared/ErrorMessage';
+import { generateCVContent } from '../../services/geminiService';
 
 declare var html2pdf: any;
 
@@ -40,6 +41,7 @@ const EditorPage: React.FC = () => {
   const [applyDetailedExperienceUpdates, setApplyDetailedExperienceUpdates] = useState<boolean>(true);
   const [currentCvId, setCurrentCvId] = useState<string | null>(null);
   const [isEditorReady, setIsEditorReady] = useState<boolean>(false); // New state
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | number | null>('classic'); // Default to classic
 
 
   useEffect(() => {
@@ -128,7 +130,7 @@ const EditorPage: React.FC = () => {
                   'Authorization': `Bearer ${token}`,
                 },
                 // Ensure cv_data is what the backend expects (the 'result' object)
-                body: JSON.stringify({ cv_data: result, template_id: templateId, name: (result as CVData).personalInfo.name || 'Untitled CV' }),
+                body: JSON.stringify({ cv_data: result, template_id: templateId || currentTemplateId || 'classic', name: (result as CVData).personalInfo.name || 'Untitled CV' }),
               })
               .then(response => {
                 if (!response.ok) {
@@ -297,7 +299,7 @@ const EditorPage: React.FC = () => {
             const response = await fetch('/api/cvs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ cv_data: cvData, template_id: currentTheme.id, name: cvData.personalInfo.name || 'Untitled CV' })
+                body: JSON.stringify({ cv_data: cvData, template_id: currentTemplateId || 'classic', name: cvData.personalInfo.name || 'Untitled CV' })
             });
             if (!response.ok) {
                 const err = await response.json();
@@ -340,7 +342,7 @@ const EditorPage: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ cv_data: cvData, template_id: currentTheme.id, name: cvData.personalInfo.name }), // Adjust payload as needed
+        body: JSON.stringify({ cv_data: cvData, template_id: currentTemplateId || 'classic', name: cvData.personalInfo.name }), // Adjust payload as needed
       });
 
       if (!response.ok) {
@@ -377,6 +379,7 @@ const EditorPage: React.FC = () => {
     setTimeout(() => {
         const element = document.getElementById('cv-content-formatted');
         if (element) {
+            trackEvent('download_cv_pdf', { event_category: 'CV Action', event_label: 'PDF Download' });
             const pdfFilename = `CV_${cvData.personalInfo.name.replace(/\s+/g, '_') || 'Resume'}.pdf`;
             const options = { margin: 0, filename: pdfFilename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: currentTheme.backgroundColor === 'white' ? '#FFFFFF' : (tailwindColorToHex(currentTheme.backgroundColor) || '#FFFFFF') }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             html2pdf().from(element).set(options).save().catch((err: Error) => {
@@ -407,14 +410,6 @@ const EditorPage: React.FC = () => {
     return colorMap[twColor] || null;
   };
 
-  if (!isEditorReady) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
-        <LoadingSpinner message={geminiStatus === GeminiRequestStatus.LOADING ? "Loading CV Editor..." : "Initializing..."} />
-      </div>
-    );
-  }
-
   useEffect(() => {
     const loadCv = async () => {
       const token = getAuthToken(); // Needed for API calls
@@ -440,10 +435,10 @@ const EditorPage: React.FC = () => {
           const data: CVData & { id: string; template_id?: string | number; name?: string } = await response.json();
 
           startTransition(() => {
-            setCVData(data); // cv_data should be pre-parsed by backend or here
+            setCVData(data.cv_data); // Assuming data is the full record, and cv_data is the field with actual CV content
             setCurrentCvId(data.id);
-            // TODO: Set theme based on data.template_id if applicable
-            // if (data.template_id) { /* logic to find and set theme */ }
+            setCurrentTemplateId(data.template_id || 'classic'); // Set template ID
+            // TODO: Potentially load/set theme based on template_id or CV theme settings
             setGeminiStatus(GeminiRequestStatus.IDLE);
             setIsEditorReady(true); // Editor is ready with loaded data
           });
@@ -502,7 +497,6 @@ const EditorPage: React.FC = () => {
     loadCv();
   }, [cvId, location.state, navigate]); // location.key could be added if we need to re-trigger on same path nav
 
-
   if (!isEditorReady) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
@@ -530,6 +524,21 @@ const EditorPage: React.FC = () => {
                     <PaletteIcon className="w-4 h-4"/> Theme
                 </button>
             </nav>
+          {/* Template Selector */}
+          <div className="p-2 mt-1 mb-2 border-t border-b border-slate-300">
+            <label htmlFor="templateSelector" className="block text-sm font-medium text-gray-700 mb-1">CV Template</label>
+            <select
+              id="templateSelector"
+              value={currentTemplateId || 'classic'}
+              onChange={(e) => { const newTemplateId = e.target.value; setCurrentTemplateId(newTemplateId); trackEvent('select_template_editor', { event_category: 'Template Selection', event_label: `Template ID: ${newTemplateId} (Editor)` }); }}
+              className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              {/* These values should match the template IDs used in CVPreview and backend */}
+              <option value="classic">Classic</option>
+              <option value="modern">Modern</option>
+              {/* TODO: Fetch these template options dynamically from /api/cv-templates */}
+            </select>
+          </div>
         {/* Save CV Button */}
         {isEditorReady && (
           <div className="p-2 mt-2">
@@ -554,7 +563,7 @@ const EditorPage: React.FC = () => {
         </aside>
         <main className="flex-1 bg-slate-50 overflow-auto p-6 flex justify-center items-start">
             <div className="w-full h-full">
-                <CVPreview cvData={cvData} theme={currentTheme} />
+                <CVPreview cvData={cvData} theme={currentTheme} templateId={currentTemplateId} />
             </div>
         </main>
       </div>

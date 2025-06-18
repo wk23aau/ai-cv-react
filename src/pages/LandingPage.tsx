@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SparklesIcon, WandSparklesIcon } from '../constants'; // Assuming constants.tsx is in src/
+import { trackEvent } from '../../services/analyticsService';
 
 // Define a type for the template data received from API
 interface CVTemplate {
@@ -72,11 +73,13 @@ const LandingPage: React.FC = () => {
 
   const handleGenerateCV = (e: React.FormEvent) => {
     e.preventDefault();
+    trackEvent('generate_cv_landing', { event_category: 'CV Generation', event_label: 'Landing Page Start', value: (jobTitle ? 1 : 0) + (jobDescription ? 1 : 0) });
     const selectedTemplateId = templates.length > 0 ? templates[0].id : undefined;
     navigate('/editor', { state: { jobTitle, jobDescription, selectedTemplateId } });
   };
 
   const handleSelectTemplate = (templateId: string | number) => {
+    trackEvent('select_template_landing', { event_category: 'Template Selection', event_label: `Template ID: ${templateId} (Landing)` });
      navigate('/editor', { state: { selectedTemplateId: templateId, jobTitle, jobDescription } });
   };
 
