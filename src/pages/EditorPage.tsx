@@ -506,8 +506,9 @@ const EditorPage: React.FC = () => {
   }
 
   return (
-    // <div className="flex flex-col h-screen font-sans antialiased"> // Original top-level div, might be adjusted by layout component
-    // Header removed, will be provided by AppLayout
+    <>
+    {/* <div className="flex flex-col h-screen font-sans antialiased"> // Original top-level div, might be adjusted by layout component */}
+    {/* Header removed, will be provided by AppLayout */}
     // <header className="bg-slate-800 text-white p-4 shadow-md flex justify-between items-center">
     //   <h1 className="text-xl font-semibold">JD2CV</h1>
     //   <button onClick={handleDownloadPDF} disabled={isPdfGenerating || geminiStatus === GeminiRequestStatus.LOADING} className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md text-sm flex items-center gap-2 disabled:opacity-50" aria-label="Download CV as PDF">
@@ -573,7 +574,8 @@ const EditorPage: React.FC = () => {
       </footer> */}
        {(geminiStatus === GeminiRequestStatus.LOADING || isPdfGenerating) && ( <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" aria-live="assertive" role="alertdialog"> <LoadingSpinner message={ isPdfGenerating ? "Generating PDF..." : activeGeminiAction === 'tailor_cv' ? "JD2CV AI is tailoring your CV..." : activeGeminiAction === 'initial_cv_title' || activeGeminiAction === 'initial_cv_jd' ? "JD2CV AI is crafting your initial CV..." : (geminiStatus === GeminiRequestStatus.LOADING ? "JD2CV AI is thinking..." : "Processing...") } size="w-12 h-12" /> </div> )}
       {geminiError && activePanel !== 'content' && ( <div className="fixed bottom-4 right-4 z-50"> <ErrorMessage message={geminiError} onClear={clearGeminiError} /> </div> )}
-    // </div> // Corresponding end for original top-level div
+    {/* // </div> // Corresponding end for original top-level div */}
+    </>
   );
 };
 // Type alias for inputType in handleInitialCvGeneration
