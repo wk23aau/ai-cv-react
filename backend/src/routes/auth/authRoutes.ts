@@ -7,7 +7,7 @@ import { JWT_SECRET } from '../../config';
 const router = express.Router();
 
 // POST /api/auth/register
-router.post('/register', async (req: express.Request, res: express.Response) => {
+router.post('/register', async (req: Request, res: Response) => {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
@@ -44,7 +44,7 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
 });
 
 // POST /api/auth/login
-router.post('/login', async (req: express.Request, res: express.Response) => {
+router.post('/login', async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
