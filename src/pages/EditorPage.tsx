@@ -13,12 +13,12 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { trackEvent } from '../services/analyticsService';
 import { CVData, ThemeOptions, GeminiRequestStatus, AutofillTarget, ExperienceEntry, CVSection, SkillEntry, EducationEntry, TailoredCVUpdate, SectionContentType as SectionGenType } from '../types'; // Renamed SectionContentType to avoid conflict
 import { INITIAL_CV_DATA, DEFAULT_THEME, PaletteIcon, DocumentTextIcon, DownloadIcon, SparklesIcon, WandSparklesIcon } from '../constants';
-import CVPreview from '../../components/CVPreview';
-import ThemeSelectorPanel from '../../components/panels/ThemeSelectorPanel';
-import ContentEditorPanel from '../../components/panels/ContentEditorPanel';
-import LoadingSpinner from '../../components/shared/LoadingSpinner';
-import ErrorMessage from '../../components/shared/ErrorMessage';
-import { generateCVContent } from '../../services/geminiService';
+import CVPreview from '../components/CVPreview';
+import ThemeSelectorPanel from '../components/panels/ThemeSelectorPanel';
+import ContentEditorPanel from '../components/panels/ContentEditorPanel';
+import LoadingSpinner from '../components/shared/LoadingSpinner';
+import ErrorMessage from '../components/shared/ErrorMessage';
+import { generateCVContent } from '../services/geminiService';
 
 declare var html2pdf: any;
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import jwt_decode from 'jwt-decode'; // Using jwt-decode to check token claims
+import { jwtDecode } from 'jwt-decode'; // Using jwt-decode to check token claims
 
 // Placeholder for actual auth token retrieval logic
 const getAuthTokenForAdminCheck = (): string | null => {
@@ -24,7 +24,7 @@ const AdminProtectedRoute: React.FC = () => {
   }
 
   try {
-    const decodedToken = jwt_decode<DecodedToken>(token);
+    const decodedToken = jwtDecode<DecodedToken>(token);
     if (!decodedToken.isAdmin) {
       // Not an admin, redirect to dashboard or a generic "unauthorized" page
       alert("Access Denied: Admin privileges required."); // Basic feedback
