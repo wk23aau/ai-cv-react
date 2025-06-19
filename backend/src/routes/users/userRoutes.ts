@@ -78,7 +78,8 @@ const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: N
     }
 };
 
-router.get('/me', protect, getUserProfileHandler as express.RequestHandler);
-router.put('/me', protect, updateUserProfileHandler as express.RequestHandler);
+// Attempt to use without 'as express.RequestHandler'
+router.get('/me', protect, getUserProfileHandler);
+router.put('/me', protect, updateUserProfileHandler);
 
 export default router;

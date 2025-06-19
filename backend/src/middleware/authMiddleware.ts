@@ -6,8 +6,10 @@ export interface AuthRequest extends Request {
     user?: { userId: number; username: string; isAdmin?: boolean };
 }
 
-export const protect = (req: AuthRequest, res: Response, next: NextFunction) => {
+// 'protect' itself should conform to the basic Express RequestHandler signature
+export const protect = (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
+    const authReq = req as AuthRequest; // Cast for internal use to assign .user
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
@@ -21,19 +23,20 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction) => 
                 iat: number;
                 exp: number
             };
-            // Ensure conversion if isAdmin might not be a boolean strictly from token
-            req.user = {
+            authReq.user = {
                 userId: decoded.userId,
                 username: decoded.username,
-                isAdmin: !!decoded.isAdmin // Explicitly make it boolean
+                isAdmin: !!decoded.isAdmin
             };
-            next();
+            next(); // By this point, 'req' (now 'authReq') has the .user property
         } catch (error) {
             console.error('Token verification error:', error);
             res.status(401).json({ message: 'Not authorized, token failed' });
+            return;
         }
     } else {
         res.status(401).json({ message: 'Not authorized, no token' });
+        return;
     }
 };
 
