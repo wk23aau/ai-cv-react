@@ -11,14 +11,16 @@ const registerHandler: RequestHandler = async (req: Request, res: Response, next
 
     if (!username || !email || !password) {
         // It's common to send response directly for validation errors
-        return res.status(400).json({ message: 'Username, email, and password are required' });
+        res.status(400).json({ message: 'Username, email, and password are required' });
+        return;
     }
 
     try {
         // Check if user already exists
         const [existingUsers] = await pool.query<any[]>('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
         if (existingUsers.length > 0) {
-            return res.status(409).json({ message: 'User already exists with this email or username' });
+            res.status(409).json({ message: 'User already exists with this email or username' });
+            return;
         }
 
         // Hash password
@@ -52,14 +54,16 @@ const loginHandler: RequestHandler = async (req: Request, res: Response, next: N
     const { email, password } = req.body;
 
     if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
+        res.status(400).json({ message: 'Email and password are required' });
+        return;
     }
 
     try {
         // Find user by email
         const [users] = await pool.query<any[]>('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            res.status(401).json({ message: 'Invalid credentials' });
+            return;
         }
 
         const user = users[0];
@@ -67,7 +71,8 @@ const loginHandler: RequestHandler = async (req: Request, res: Response, next: N
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            res.status(401).json({ message: 'Invalid credentials' });
+            return;
         }
 
         // Generate JWT
