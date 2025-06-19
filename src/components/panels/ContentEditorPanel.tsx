@@ -72,11 +72,11 @@ const InputFieldWithToggle: React.FC<{
 };
 
 
-const InputField: React.FC<{label: string, value: string, name: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, type?: string, required?: boolean}> = 
-  ({label, value, name, onChange, type="text", required=false}) => (
+const InputField: React.FC<{label: string, value: string, name: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, type?: string, required?: boolean, placeholder?: string}> =
+  ({label, value, name, onChange, type="text", required=false, placeholder}) => (
   <div className="mb-3">
     <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-    <input type={type} id={name} name={name} value={value} onChange={onChange} required={required} className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
+    <input type={type} id={name} name={name} value={value} onChange={onChange} required={required} placeholder={placeholder} className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
   </div>
 );
 
@@ -288,9 +288,19 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
   const renderListEditor = <T extends ExperienceEntry | EducationEntry | SkillEntry>(
     sectionTitle: string, 
     sectionKey: 'experience' | 'education' | 'skills',
-    itemFields: Array<{key: keyof T, label: string, type?: string, listKey?: keyof T, listLabel?: string, genType?: string, genContextKeys?: (keyof T)[]}>
+    itemFields: Array<{key: keyof T, label: string, type?: string, placeholder?: string, listKey?: keyof T, listLabel?: string, genType?: string, genContextKeys?: (keyof T)[]}>
   ) => {
     const items = cvData[sectionKey] as T[];
+
+    let placeholderMessage = "";
+    if (sectionKey === 'experience') {
+      placeholderMessage = "No work experience added yet. Use the buttons above to add an entry manually or generate one with AI.";
+    } else if (sectionKey === 'education') {
+      placeholderMessage = "No education entries yet. Use the buttons above to add an entry manually or generate one with AI.";
+    } else if (sectionKey === 'skills') {
+      placeholderMessage = "No skill categories added yet. Use the buttons above to add an entry manually or generate one with AI.";
+    }
+
     return (
       <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
         <div className="flex justify-between items-center mb-3">
@@ -306,8 +316,9 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                     placeholder="Job title or keywords for new AI entry..."
                     value={newExperiencePrompt}
                     onChange={(e) => setNewExperiencePrompt(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm mb-2"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm"
                 />
+                <p className="text-xs text-gray-500 mt-1 mb-2">Example: 'Lead Developer on e-commerce platform using React and Node.js' or 'Managed a team of 5 engineers...'</p>
                 <button
                     onClick={handleNewExperienceGeminiGenerate}
                     disabled={geminiStatus === GeminiRequestStatus.LOADING && activeGeminiAction === `new_experience_entry_${cvData.experience.length}`}
@@ -325,7 +336,11 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
             <PlusIcon className="w-4 h-4" /> Add Empty {sectionTitle === "Work Experience" ? "Experience" : sectionTitle === "Skills" ? "Skill Category" : sectionTitle} Entry Manually
         </button>
 
-        {items.map((item, index) => (
+        {items.length === 0 ? (
+          <div className="p-3 mb-3 text-sm text-gray-600 bg-gray-100 rounded-md border border-gray-200 text-center">
+            {placeholderMessage}
+          </div>
+        ) : items.map((item, index) => (
           <div key={item.id} className="mb-4 p-3 border border-gray-200 rounded-md relative bg-gray-50">
             <button onClick={() => removeItem(sectionKey, index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1 rounded-full bg-white bg-opacity-50 hover:bg-opacity-100 transition-colors" aria-label={`Delete this ${sectionTitle} entry`}>
               <TrashIcon className="w-4 h-4"/>
@@ -360,8 +375,11 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                                 placeholder={`Keywords for AI to generate ${field.label}...`}
                                 value={geminiPrompts[fieldKeyBase] || ''}
                                 onChange={(e) => handleGeminiPromptChange(fieldKeyBase, e.target.value)}
-                                className="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-xs mb-1"
+                                className="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-xs"
                             />
+                            {field.genType === 'experience_responsibilities' && <p className="text-xs text-gray-500 mt-0.5 mb-1">Tip: Use keywords about your role, achievements, or technologies used. AI will generate bullet points.</p>}
+                            {field.genType === 'education_details' && <p className="text-xs text-gray-500 mt-0.5 mb-1">Tip: Provide keywords like 'Thesis on AI', 'GPA 4.0', 'Relevant coursework: Data Structures' for AI to elaborate.</p>}
+                            {field.genType === 'skill_suggestions' && <p className="text-xs text-gray-500 mt-0.5 mb-1">Tip: Enter a skill category (e.g., 'Frontend Technologies') or specific skills you want to expand on.</p>}
                             <button 
                                 onClick={() => {
                                   let contextData: any = {};
@@ -398,6 +416,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
                     value={item[field.key] as string} 
                     onChange={(e) => handleItemChange(sectionKey, index, field.key, e.target.value)}
                     type={field.type || 'text'}
+                    placeholder={field.placeholder}
                 />
               );
             })}
@@ -422,6 +441,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
           rows={6}
           placeholder="Paste the full job description to help AI tailor your CV..."
         />
+        <p className="text-xs text-gray-500 mt-1">Tip: Paste the complete job description for best results. The AI will analyze it to tailor your summary, skills, and experience.</p>
         <div className="mt-3 mb-3">
             <label htmlFor="applyDetailedExperienceUpdatesToggle" className="flex items-center text-sm text-gray-700 cursor-pointer">
                 <input
@@ -524,8 +544,8 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
         { key: 'jobTitle', label: 'Job Title' },
         { key: 'company', label: 'Company' },
         { key: 'location', label: 'Location' },
-        { key: 'startDate', label: 'Start Date (e.g., Jan 2020)' },
-        { key: 'endDate', label: 'End Date (e.g., Present or Dec 2022)' },
+        { key: 'startDate', label: 'Start Date', placeholder: 'e.g., Jan 2020' },
+        { key: 'endDate', label: 'End Date', placeholder: 'e.g., Present or Dec 2022' },
         { key: 'responsibilities', label: 'Responsibilities', listKey: 'responsibilities', listLabel: 'Responsibility', genType: 'experience_responsibilities', genContextKeys: ['jobTitle', 'company'] }
       ])}
 
@@ -533,7 +553,7 @@ const ContentEditorPanel: React.FC<ContentEditorPanelProps> = ({
         { key: 'degree', label: 'Degree (e.g., B.S. in Computer Science)' },
         { key: 'institution', label: 'Institution Name' },
         { key: 'location', label: 'Location' },
-        { key: 'graduationDate', label: 'Graduation Date (e.g., May 2020)' },
+        { key: 'graduationDate', label: 'Graduation Date', placeholder: 'e.g., May 2020' },
         { key: 'details', label: 'Details (e.g., GPA, Honors, Relevant Coursework)', listKey: 'details', listLabel: 'Detail', genType: 'education_details', genContextKeys: ['degree', 'institution'] }
       ])}
 

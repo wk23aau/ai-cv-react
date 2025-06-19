@@ -214,8 +214,20 @@ const App: React.FC = () => {
         });
     } catch (err) {
         console.error("Initial CV generation error:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to generate initial CV.";
-        setGeminiError(errorMessage); 
+        let displayMessage = "An unexpected error occurred while generating the initial CV."; // Default for non-Error instances
+        if (err instanceof Error) {
+            const originalMessage = err.message;
+            if (originalMessage.includes("Failed to fetch")) {
+                displayMessage = "A network error occurred. Please check your internet connection and try again.";
+            } else if (originalMessage.includes("Status: 500") || originalMessage.includes("Status: 502") || originalMessage.includes("Status: 503") || originalMessage.includes("Status: 504")) {
+                displayMessage = "The AI service is currently unavailable or experiencing issues. Please try again later.";
+            } else if (originalMessage.includes("Authentication required")) {
+                displayMessage = "There was an authentication issue. Please try logging out and back in, or refresh the page.";
+            } else {
+                displayMessage = originalMessage; // Potentially a specific message from the backend
+            }
+        }
+        setGeminiError(displayMessage);
         setGeminiStatus(GeminiRequestStatus.ERROR);
         setActiveGeminiAction(null);
     }
@@ -279,7 +291,20 @@ const App: React.FC = () => {
       });
     } catch (err) {
       console.error("Gemini autofill error:", err);
-      setGeminiError(err instanceof Error ? err.message : "An unknown error occurred during content generation.");
+      let displayMessage = "An unexpected error occurred during content generation."; // Default for non-Error instances
+        if (err instanceof Error) {
+            const originalMessage = err.message;
+            if (originalMessage.includes("Failed to fetch")) {
+                displayMessage = "A network error occurred. Please check your internet connection and try again.";
+            } else if (originalMessage.includes("Status: 500") || originalMessage.includes("Status: 502") || originalMessage.includes("Status: 503") || originalMessage.includes("Status: 504")) {
+                displayMessage = "The AI service is currently unavailable or experiencing issues. Please try again later.";
+            } else if (originalMessage.includes("Authentication required")) {
+                displayMessage = "There was an authentication issue. Please try logging out and back in, or refresh the page.";
+            } else {
+                displayMessage = originalMessage; // Potentially a specific message from the backend
+            }
+        }
+      setGeminiError(displayMessage);
       setGeminiStatus(GeminiRequestStatus.ERROR);
       setActiveGeminiAction(null);
     }
@@ -340,7 +365,20 @@ const App: React.FC = () => {
         });
     } catch (err) {
         console.error("CV Tailoring error:", err);
-        setGeminiError(err instanceof Error ? err.message : "Failed to tailor CV.");
+        let displayMessage = "An unexpected error occurred while tailoring the CV."; // Default for non-Error instances
+        if (err instanceof Error) {
+            const originalMessage = err.message;
+            if (originalMessage.includes("Failed to fetch")) {
+                displayMessage = "A network error occurred. Please check your internet connection and try again.";
+            } else if (originalMessage.includes("Status: 500") || originalMessage.includes("Status: 502") || originalMessage.includes("Status: 503") || originalMessage.includes("Status: 504")) {
+                displayMessage = "The AI service is currently unavailable or experiencing issues. Please try again later.";
+            } else if (originalMessage.includes("Authentication required")) {
+                displayMessage = "There was an authentication issue. Please try logging out and back in, or refresh the page.";
+            } else {
+                displayMessage = originalMessage; // Potentially a specific message from the backend
+            }
+        }
+        setGeminiError(displayMessage);
         setGeminiStatus(GeminiRequestStatus.ERROR);
         setActiveGeminiAction(null);
     }
@@ -395,13 +433,19 @@ const App: React.FC = () => {
     }, 250); 
   }, [currentTheme.previewScale, cvData.personalInfo.name, currentTheme.backgroundColor]);
 
+  // Converts a limited set of Tailwind background color names (specifically those
+  // used in AVAILABLE_THEMES in constants.tsx) to hex values for PDF generation.
+  // This is not a comprehensive Tailwind color parser.
   const tailwindColorToHex = (twColor: string): string | null => {
-    if (twColor.startsWith('gray-')) return '#F9FAFB'; 
+    if (twColor === 'gray-50') return '#F9FAFB';
     if (twColor === 'white') return '#FFFFFF';
     if (twColor === 'black') return '#000000';
     const colorMap: {[key:string]: string} = {
         'slate-50': '#F8FAFC', 'slate-100': '#F1F5F9',
         'blue-50': '#EFF6FF', 'blue-600': '#2563EB',
+        // Add other specific colors from AVAILABLE_THEMES if they are used as background colors
+        // and are not 'white' or 'gray-50'.
+        // For now, 'white' and 'gray-50' are the only ones in AVAILABLE_THEMES.backgroundColor.
     };
     return colorMap[twColor] || null; 
   };
