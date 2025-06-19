@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import pool from '../../db';
 import { protect } from '../../middleware/authMiddleware';
+import { AuthenticatedUser } from '../../types/auth';
 
 const router = Router();
 
@@ -15,7 +16,8 @@ const getUserProfileHandler = async (
       return;
     }
 
-    const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user.userId]);
+    const userId = (req.user as AuthenticatedUser).userId;
+    const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [userId]);
 
     if (users.length === 0) {
       res.status(404).json({ message: 'User not found' }); // Consider { error: 'message' }
@@ -39,7 +41,7 @@ const updateUserProfileHandler = async (
     }
 
     const { username, email } = req.body;
-    const userId = req.user.userId;
+    const userId = (req.user as AuthenticatedUser).userId;
 
     if (!username && !email) {
       res.status(400).json({ message: 'No fields to update' }); // Consider { error: 'message' }
