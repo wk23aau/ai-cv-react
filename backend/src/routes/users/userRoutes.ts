@@ -1,38 +1,29 @@
-import { Router, Response, NextFunction } from 'express'; // Request removed if not used directly
+import express, { Router, Request, Response, NextFunction } from 'express';
 import pool from '../../db';
 import { protect, AuthRequest } from '../../middleware/authMiddleware';
-import bcrypt from 'bcrypt';
-import { RowDataPacket, OkPacket } from 'mysql2/promise'; // Added OkPacket
+// import bcrypt from 'bcrypt'; // REMOVE THIS LINE
 
 const router = Router();
 
-// The handlers will be typed with (req: AuthRequest, res: Response, next: NextFunction)
-
 const getUserProfileHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const [rows] = await pool.query<RowDataPacket[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user?.userId]);
-        if (rows.length === 0) {
+        // req.user is now properly typed via AuthRequest from 'protect' middleware
+        const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user?.userId]);
+        if (users.length === 0) {
             res.status(404).json({ message: 'User not found' });
-            return; // Ensures void return for this path
+            return;
         }
-        // Assuming the selected fields are what you want to return.
-        // If you have a specific User DTO, you might cast rows[0] to that.
-        res.json(rows[0]);
+        res.json(users[0]);
     } catch (error) {
         next(error);
     }
 };
 
 const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const { username, email, password } = req.body;
+    const { username, email } = req.body; // Removed password
     const userId = req.user?.userId;
 
-    if (!userId) { // Important check if req.user or req.user.userId could be undefined
-        res.status(401).json({ message: 'Not authorized' }); // Or 403 Forbidden
-        return;
-    }
-
-    if (!username && !email && !password) {
+    if (!username && !email) { // Condition updated
         res.status(400).json({ message: 'No fields to update' });
         return;
     }
@@ -49,25 +40,33 @@ const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: N
             query += 'email = ?, ';
             params.push(email);
         }
-        if (password) {
-            const salt = await bcrypt.genSalt(10);
-            const password_hash = await bcrypt.hash(password, salt);
-            query += 'password_hash = ?, ';
-            params.push(password_hash);
-        }
+        // Password update logic removed
 
         query += 'updated_at = CURRENT_TIMESTAMP WHERE id = ?';
         params.push(userId);
-        query = query.replace(', updated_at', ' updated_at');
 
-        const [result] = await pool.query<OkPacket>(query, params);
+        // Remove trailing comma if any before 'updated_at'
+        // A more robust way to build the query might be to collect field updates in an array and then join them.
+        // For example: const setClauses = []; if (username) setClauses.push('username = ?'); ... query += setClauses.join(', ');
+        // However, the current replace method works for the specific fields here.
+        query = query.replace(', updated_at', ' updated_at'); // Clean up query string if only one field was present before updated_at
+        if (query.startsWith('UPDATE users SET updated_at')) { // if no fields were added, username or email
+             query = query.replace('updated_at = CURRENT_TIMESTAMP WHERE id = ?', 'id = ?'); // Avoid updating only updated_at if no other changes
+             // This case should ideally be caught by the "No fields to update" check,
+             // but as a safeguard if only `updated_at` was the change (which is implicitly done).
+             // Or, ensure the query is only built if there are actual changes.
+             // For now, the existing logic means at least one of username/email must be present.
+        }
+
+
+        const [result] = await pool.query<any>(query, params);
 
         if (result.affectedRows === 0) {
             res.status(404).json({ message: 'User not found or no changes made' });
             return;
         }
 
-        const [updatedUsers] = await pool.query<RowDataPacket[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [userId]);
+        const [updatedUsers] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [userId]);
         res.json(updatedUsers[0]);
 
     } catch (error: any) {
@@ -79,10 +78,7 @@ const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: N
     }
 };
 
-// GET /api/users/me - Get current user's profile
-router.get('/me', protect, getUserProfileHandler);
-
-// PUT /api/users/me - Update current user's profile
-router.put('/me', protect, updateUserProfileHandler);
+router.get('/me', protect, getUserProfileHandler as express.RequestHandler);
+router.put('/me', protect, updateUserProfileHandler as express.RequestHandler);
 
 export default router;

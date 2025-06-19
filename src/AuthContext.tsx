@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import analyticsService from './services/analyticsService'; // Import analyticsService
 
 // 1. Define User Interface
 export interface User {
@@ -15,10 +16,9 @@ export interface AuthContextType {
   isLoading: boolean; // For initial auth state loading and during login/signup
   isAuthenticated: boolean; // Derived from token presence
   isAdmin: boolean; // Derived from user object
-  login: (loginData: { email; password }) => Promise<void>;
-  signup: (signupData: { username; email; password }) => Promise<void>;
   logout: () => void;
   initializeAuth: () => void; // To check localStorage on app load
+  handleGoogleLogin: (token: string, user: User) => void; // New method
 }
 
 // 3. Create AuthContext
@@ -47,68 +47,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedToken) {
         setToken(storedToken);
         if (storedUserInfo) {
-          setUser(JSON.parse(storedUserInfo));
+          const parsedUser: User = JSON.parse(storedUserInfo);
+          setUser(parsedUser);
+          if (parsedUser && parsedUser.id) {
+            analyticsService.setUserId(parsedUser.id); // Set GA User-ID on initialization
+          } else {
+            console.warn("AuthContext: User ID not available for GA User-ID tracking during init.");
+          }
         }
       }
     } catch (error) {
       console.error("AuthContext: Error during initialization", error);
-      // If error, ensure state is clean
       setToken(null);
       setUser(null);
       localStorage.removeItem('token');
       localStorage.removeItem('userInfo');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const login = async (loginData: { email; password }) => {
-    setIsLoading(true);
-    setError(null); // Assuming an setError state would be part of a more complete hook, or handled by component
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-      setToken(data.token);
-      setUser(data.user);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userInfo', JSON.stringify(data.user));
-    } catch (error) {
-      setToken(null);
-      setUser(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('userInfo');
-      if (error instanceof Error) throw error;
-      throw new Error('An unknown error occurred during login.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signup = async (signupData: { username; email; password }) => {
-    setIsLoading(true);
-    setError(null); // Assuming setError
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(signupData),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
-      }
-      // Signup successful, but no auto-login in this iteration.
-      // The user will be redirected to login by the SignupPage component.
-    } catch (error) {
-      if (error instanceof Error) throw error;
-      throw new Error('An unknown error occurred during signup.');
+      analyticsService.setUserId(null); // Clear GA User-ID on error
     } finally {
       setIsLoading(false);
     }
@@ -119,8 +73,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('userInfo');
-    // Potentially redirect or update other app state as needed
+    analyticsService.setUserId(null); // Clear GA User-ID on logout
     console.log("AuthContext: User logged out");
+    // Potentially redirect or update other app state as needed
   };
 
   // Call initializeAuth on mount
@@ -132,17 +87,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // For now, errors are thrown and handled by components
   const [_, setError] = useState<string | null>(null);
 
+  const handleGoogleLogin = (newToken: string, newUser: User) => {
+    setIsLoading(true);
+    try {
+      setToken(newToken);
+      setUser(newUser);
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('userInfo', JSON.stringify(newUser));
+      console.log("AuthContext: User logged in with Google", newUser);
+      if (newUser && newUser.id) { // Ensure user and user.id are available
+         analyticsService.setUserId(newUser.id); // Set GA User-ID
+      } else {
+         console.warn("AuthContext: User ID not available for GA User-ID tracking after Google login.");
+      }
+    } catch (error) {
+      console.error("AuthContext: Error during Google login processing", error);
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userInfo');
+      analyticsService.setUserId(null); // Clear GA User-ID on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const contextValue: AuthContextType = {
     token,
     user,
     isLoading,
-    isAuthenticated,
-    isAdmin: isAdminUser,
-    login,
-    signup,
+    isAuthenticated: !!token, // Derived from token presence
+    isAdmin: !!(user && user.isAdmin), // Derived from user object
     logout,
-    initializeAuth, // Though called internally, exposing it might be useful for specific scenarios
+    initializeAuth,
+    handleGoogleLogin, // Ensure this is part of the context
   };
 
   return (

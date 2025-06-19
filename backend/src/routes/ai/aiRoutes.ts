@@ -229,11 +229,14 @@ Focus on making the CV highly competitive for the specific Job Description.
     try {
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: GEMINI_TEXT_MODEL,
-            contents: [{ role: "user", parts: [{ text: prompt }] }], // Keep this structured format
-            // Attempt to use 'config' without @ts-ignore
+            contents: prompt,
+            // @ts-ignore - TODO: Fix this type issue if library is incorrectly typed or if there's a version mismatch.
+            // The type for GenerateContentRequest['config'] might not expect responseMimeType directly.
+            // It might be under generationConfig.responseMimeType.
             config: isJsonResponseType
                 ? { responseMimeType: "application/json" }
-                : {} // Empty object for non-JSON, or undefined if the type allows
+                // : { thinkingConfig: { thinkingBudget: 0 } } // thinkingConfig seems not available or deprecated
+                : { }
         });
 
         // Safely access and trim text, defaulting to empty string if response.text is undefined

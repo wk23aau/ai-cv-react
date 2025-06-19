@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import passport from './middleware/passportConfig'; // Import the configured Passport
 import authRoutes from './routes/auth/authRoutes';
 import userRoutes from './routes/users/userRoutes';
 import cvRoutes from './routes/cvs/cvRoutes';
@@ -17,6 +18,8 @@ const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+app.use(passport.initialize()); // Initialize Passport
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
