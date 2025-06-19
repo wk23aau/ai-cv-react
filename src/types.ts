@@ -77,6 +77,14 @@ export interface ThemeOptions {
   textColor: string; // e.g. 'gray-900'
   fontFamily: string; // Tailwind font family class e.g. 'font-sans'
   previewScale?: number; // Zoom level for CV Preview
+  templateId?: string; // To identify which CV template to use (e.g., 'classic', 'modern', 'minimalist')
+  textColorOpposite?: string; // For text on dark backgrounds, e.g. 'white'
+  templateParams?: { // Template-specific parameters
+    minimalist?: {
+      showPortrait?: boolean;
+    };
+    // Add other template-specific params here if needed
+  };
 }
 
 export type CVSection = keyof CVData | `experience.${number}.responsibilities` | `education.${number}.details` | `skills.${number}.skills`;

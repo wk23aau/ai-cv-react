@@ -2,11 +2,14 @@ import React from 'react';
 import { CVData, ThemeOptions, PersonalInfo, ExperienceEntry, EducationEntry, SkillEntry } from '../types';
 import ClassicTemplate from './cv_templates/ClassicTemplate';
 import ModernTemplate from './cv_templates/ModernTemplate';
+import MinimalistTemplate from './cv_templates/MinimalistTemplate';
+import AcademicTemplate from './cv_templates/AcademicTemplate';
+import CreativeTemplate from './cv_templates/CreativeTemplate';
 
 interface CVPreviewProps {
   cvData: CVData;
   theme: ThemeOptions;
-  templateId?: string | number | null; // Added templateId
+  // templateId prop is already part of theme: ThemeOptions
 }
 
 // Exporting section components for use in templates (temporary workaround)
@@ -160,17 +163,27 @@ export const SkillsSectionItem: React.FC<{ skillItem: SkillEntry; theme: ThemeOp
 
 const CVPreview: React.FC<CVPreviewProps> = ({ cvData, theme, templateId }) => {
   const scale = theme.previewScale || 1;
+  const currentTemplateId = theme.templateId || 'classic'; // Default to classic
 
   let templateToRender;
-  // Default to 'classic' if templateId is null, undefined, or explicitly 'classic' or 1 (from seeded data)
-  // The seeded backend data uses string IDs 'classic' and 'modern' for templates, but IDs from DB are numbers.
-  // So, we check for both numeric and string versions.
-  const templateIdStr = String(templateId).toLowerCase();
 
-  if (templateIdStr === 'modern' || templateIdStr === '2') {
-    templateToRender = <ModernTemplate cvData={cvData} theme={theme} />;
-  } else { // Default to Classic for 'classic', '1', or any other/undefined value
-    templateToRender = <ClassicTemplate cvData={cvData} theme={theme} />;
+  switch (currentTemplateId) {
+    case 'modern':
+      templateToRender = <ModernTemplate cvData={cvData} theme={theme} />;
+      break;
+    case 'minimalist':
+      templateToRender = <MinimalistTemplate cvData={cvData} theme={theme} />;
+      break;
+    case 'academic':
+      templateToRender = <AcademicTemplate cvData={cvData} theme={theme} />;
+      break;
+    case 'creative':
+      templateToRender = <CreativeTemplate cvData={cvData} theme={theme} />;
+      break;
+    case 'classic':
+    default:
+      templateToRender = <ClassicTemplate cvData={cvData} theme={theme} />;
+      break;
   }
 
   return (

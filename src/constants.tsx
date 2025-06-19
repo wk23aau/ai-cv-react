@@ -25,6 +25,44 @@ export const AVAILABLE_THEMES: { name: string; options: ThemeOptions }[] = [
     name: 'Creative Purple',
     options: { ...DEFAULT_THEME, primaryColor: 'purple-600', secondaryColor: 'pink-500', backgroundColor: 'gray-50', textColor: 'gray-800' },
   },
+  {
+    name: 'Pure Minimalist',
+    options: {
+      ...DEFAULT_THEME,
+      templateId: 'minimalist',
+      primaryColor: 'gray-800',
+      secondaryColor: 'gray-600',
+      backgroundColor: 'white',
+      textColor: 'gray-900',
+      fontFamily: 'font-sans',
+      templateParams: { minimalist: { showPortrait: false } }, // Example: default no portrait
+    },
+  },
+  {
+    name: 'Scholarly Academic',
+    options: {
+      ...DEFAULT_THEME,
+      templateId: 'academic',
+      primaryColor: 'blue-800',
+      secondaryColor: 'gray-700',
+      backgroundColor: 'gray-50',
+      textColor: 'gray-900',
+      fontFamily: 'font-serif',
+    },
+  },
+  {
+    name: 'Dynamic Creative',
+    options: {
+      ...DEFAULT_THEME,
+      templateId: 'creative',
+      primaryColor: 'purple-600',
+      secondaryColor: 'pink-500',
+      backgroundColor: 'white',
+      textColor: 'gray-800',
+      textColorOpposite: 'white',
+      fontFamily: 'font-sans',
+    },
+  },
 ];
 
 export const INITIAL_CV_DATA: CVData = {
