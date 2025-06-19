@@ -16,6 +16,7 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage')); // Lazy load it
 
 // Auth context/state would typically be managed here or in a dedicated provider
 // For now, just basic routing structure.
@@ -78,6 +79,11 @@ const App: React.FC = () => {
         <Route path="/signup" element={
           <Suspense fallback={<div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading..."/></div>}>
             <SignupPage />
+          </Suspense>
+        } />
+        <Route path="/auth/callback" element={
+          <Suspense fallback={<div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading..."/></div>}>
+            <AuthCallbackPage />
           </Suspense>
         } />
       </Routes>
