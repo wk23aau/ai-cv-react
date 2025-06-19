@@ -1,16 +1,17 @@
-import express from 'express';
+import express, { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import pool from '../../db';
 import { protect, AuthRequest } from '../../middleware/authMiddleware';
 
-const router = express.Router();
+const router = Router();
 
-// POST /api/cvs - Create a new CV
-router.post('/', protect, async (req: AuthRequest, res: Response) => {
+const createCvHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
     const { cv_data, template_id, name } = req.body;
-    const userId = req.user?.userId;
+    const userId = authReq.user?.userId;
 
     if (!cv_data) {
-        return res.status(400).json({ message: 'cv_data is required' });
+        res.status(400).json({ message: 'cv_data is required' });
+        return;
     }
 
     try {
@@ -18,82 +19,90 @@ router.post('/', protect, async (req: AuthRequest, res: Response) => {
             'INSERT INTO cvs (user_id, cv_data, template_id, name) VALUES (?, ?, ?, ?)',
             [userId, JSON.stringify(cv_data), template_id || null, name || 'Untitled CV']
         );
+
+        if (!result || !result.insertId) {
+            throw new Error('CV creation failed, no insertId returned from database.');
+        }
         const newCvId = result.insertId;
         const [newCvRows] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ?', [newCvId]);
 
         if (newCvRows.length === 0) {
-            return res.status(500).json({ message: 'Failed to retrieve newly created CV' });
+            // This case should ideally not happen if insertId was valid
+            throw new Error('Failed to retrieve newly created CV immediately after insertion.');
         }
 
         const newCv = newCvRows[0];
         // Parse cv_data from string to JSON before sending response
         try {
-            newCv.cv_data = JSON.parse(newCv.cv_data);
+            if (typeof newCv.cv_data === 'string') { // Ensure it's a string before parsing
+                newCv.cv_data = JSON.parse(newCv.cv_data);
+            }
         } catch (parseError) {
             console.error("Error parsing cv_data from DB on create:", parseError);
-            // Keep it as string if parsing fails, or handle error appropriately
+            // Decide how to handle: send as string, or error out?
+            // For now, let it pass as string if it was, or throw if critical
+            // throw new Error('Error processing CV data from database after creation.');
         }
 
         res.status(201).json(newCv);
     } catch (error) {
-        console.error('Create CV error:', error);
-        res.status(500).json({ message: 'Server error while creating CV' });
+        next(error);
     }
-});
+};
 
-// GET /api/cvs - Get all CVs for the logged-in user
-router.get('/', protect, async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.userId;
+const getAllCvsHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
+    const userId = authReq.user?.userId;
     try {
         const [cvs] = await pool.query<any[]>('SELECT id, user_id, template_id, name, created_at, updated_at FROM cvs WHERE user_id = ? ORDER BY updated_at DESC', [userId]);
-        // Note: cv_data is not returned in the list to keep the response light.
-        // It can be fetched when a specific CV is requested.
         res.json(cvs);
     } catch (error) {
-        console.error('Get CVs error:', error);
-        res.status(500).json({ message: 'Server error while fetching CVs' });
+        next(error);
     }
-});
+};
 
-// GET /api/cvs/:id - Get a specific CV
-router.get('/:id', protect, async (req: AuthRequest, res: Response) => {
+const getCvByIdHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
     const cvId = req.params.id;
-    const userId = req.user?.userId;
+    const userId = authReq.user?.userId;
     try {
         const [cvs] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (cvs.length === 0) {
-            return res.status(404).json({ message: 'CV not found or not authorized' });
+            res.status(404).json({ message: 'CV not found or not authorized' });
+            return;
         }
         const cv = cvs[0];
-        // Parse cv_data from string to JSON
         try {
-            cv.cv_data = JSON.parse(cv.cv_data);
+            if (typeof cv.cv_data === 'string') {
+                cv.cv_data = JSON.parse(cv.cv_data);
+            }
         } catch (parseError) {
             console.error("Error parsing cv_data from DB on get single:", parseError);
-            return res.status(500).json({ message: 'Error processing CV data from database.' });
+            // This is a critical error if cv_data is expected to be JSON by frontend
+            throw new Error('Error processing CV data from database.');
         }
         res.json(cv);
     } catch (error) {
-        console.error('Get specific CV error:', error);
-        res.status(500).json({ message: 'Server error' });
+        next(error);
     }
-});
+};
 
-// PUT /api/cvs/:id - Update a specific CV
-router.put('/:id', protect, async (req: AuthRequest, res: Response) => {
+const updateCvHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
     const cvId = req.params.id;
-    const userId = req.user?.userId;
+    const userId = authReq.user?.userId;
     const { cv_data, template_id, name } = req.body;
 
-    if (!cv_data && template_id === undefined && name === undefined) {
-        return res.status(400).json({ message: 'No fields to update provided' });
+    if (cv_data === undefined && template_id === undefined && name === undefined) {
+        res.status(400).json({ message: 'No fields to update provided' });
+        return;
     }
 
     try {
-        // First, verify the CV belongs to the user
-        const [existingCvs] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
+        const [existingCvs] = await pool.query<any[]>('SELECT id FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (existingCvs.length === 0) {
-            return res.status(404).json({ message: 'CV not found or not authorized' });
+            res.status(404).json({ message: 'CV not found or not authorized for update' });
+            return;
         }
 
         let query = 'UPDATE cvs SET ';
@@ -113,43 +122,59 @@ router.put('/:id', protect, async (req: AuthRequest, res: Response) => {
         query += 'updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?';
         params.push(cvId, userId);
 
-        // Remove trailing comma if any before 'updated_at'
-        query = query.replace(', updated_at', ' updated_at');
+        query = query.replace(', updated_at', ' updated_at'); // Remove trailing comma if only one field updated
 
-        await pool.query(query, params);
+        const [updateResult] = await pool.query<any>(query, params);
+        if (updateResult.affectedRows === 0) {
+             // This might happen if data sent is same as existing, or CV just deleted by another request.
+            // Consider if this is an error or just an "ok, no change".
+            // For now, let's assume it means something unexpected if we already verified ownership.
+            // However, if no actual data changed, affectedRows can be 0 but not an error.
+            // Let's fetch the CV to be sure.
+        }
 
-        const [updatedCvRows] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ?', [cvId]);
+        const [updatedCvRows] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (updatedCvRows.length === 0) {
-            return res.status(500).json({ message: 'Failed to retrieve updated CV' });
+            // This would be very strange if update didn't error and CV was there before.
+            throw new Error('Failed to retrieve updated CV after update operation.');
         }
         const updatedCv = updatedCvRows[0];
         try {
-            updatedCv.cv_data = JSON.parse(updatedCv.cv_data);
+            if (typeof updatedCv.cv_data === 'string') {
+                updatedCv.cv_data = JSON.parse(updatedCv.cv_data);
+            }
         } catch (parseError) {
              console.error("Error parsing cv_data from DB on update:", parseError);
+             // As above, decide if this is critical
         }
 
         res.json(updatedCv);
     } catch (error) {
-        console.error('Update CV error:', error);
-        res.status(500).json({ message: 'Server error' });
+        next(error);
     }
-});
+};
 
-// DELETE /api/cvs/:id - Delete a specific CV
-router.delete('/:id', protect, async (req: AuthRequest, res: Response) => {
+const deleteCvHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
     const cvId = req.params.id;
-    const userId = req.user?.userId;
+    const userId = authReq.user?.userId;
     try {
         const [result] = await pool.query<any>('DELETE FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'CV not found or not authorized' });
+            res.status(404).json({ message: 'CV not found or not authorized for deletion' });
+            return;
         }
         res.status(200).json({ message: 'CV deleted successfully' });
     } catch (error) {
-        console.error('Delete CV error:', error);
-        res.status(500).json({ message: 'Server error' });
+        next(error);
     }
-});
+};
+
+// Define routes
+router.post('/', protect, createCvHandler);
+router.get('/', protect, getAllCvsHandler);
+router.get('/:id', protect, getCvByIdHandler);
+router.put('/:id', protect, updateCvHandler);
+router.delete('/:id', protect, deleteCvHandler);
 
 export default router;

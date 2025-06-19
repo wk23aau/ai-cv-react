@@ -1,31 +1,38 @@
-import express from 'express';
+import express, { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import pool from '../../db';
-import { protect, AuthRequest } from '../../middleware/authMiddleware';
+import { protect, AuthRequest } from '../../middleware/authMiddleware'; // AuthRequest might need to extend express.Request
 import bcrypt from 'bcrypt';
 
-const router = express.Router();
+const router = Router();
 
-// GET /api/users/me - Get current user's profile
-router.get('/me', protect, async (req: AuthRequest, res: Response) => {
+// Extend AuthRequest to include NextFunction if it's to be used with RequestHandler directly
+// Or, ensure AuthRequest is compatible. For now, let's assume AuthRequest is primarily for req.user.
+// The handlers will be typed with (req: AuthRequest, res: Response, next: NextFunction)
+
+const getUserProfileHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    // Cast req to AuthRequest to access req.user
+    const authReq = req as AuthRequest;
     try {
-        const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user?.userId]);
+        const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [authReq.user?.userId]);
         if (users.length === 0) {
-            return res.status(404).json({ message: 'User not found' });
+            res.status(404).json({ message: 'User not found' });
+            return;
         }
         res.json(users[0]);
     } catch (error) {
-        console.error('Get user profile error:', error);
-        res.status(500).json({ message: 'Server error' });
+        // console.error('Get user profile error:', error); // Logging now in central error handler
+        next(error);
     }
-});
+};
 
-// PUT /api/users/me - Update current user's profile
-router.put('/me', protect, async (req: AuthRequest, res: Response) => {
+const updateUserProfileHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
     const { username, email, password } = req.body;
-    const userId = req.user?.userId;
+    const userId = authReq.user?.userId;
 
     if (!username && !email && !password) {
-        return res.status(400).json({ message: 'No fields to update' });
+        res.status(400).json({ message: 'No fields to update' });
+        return;
     }
 
     try {
@@ -57,19 +64,28 @@ router.put('/me', protect, async (req: AuthRequest, res: Response) => {
         const [result] = await pool.query<any>(query, params);
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'User not found or no changes made' });
+            res.status(404).json({ message: 'User not found or no changes made' });
+            return;
         }
 
         const [updatedUsers] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [userId]);
         res.json(updatedUsers[0]);
 
     } catch (error: any) {
-        console.error('Update user profile error:', error);
+        // console.error('Update user profile error:', error); // Logging now in central error handler
         if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: 'Username or email already taken.' });
+            // For specific errors like this, it's common to send a specific status code directly
+            res.status(409).json({ message: 'Username or email already taken.' });
+            return;
         }
-        res.status(500).json({ message: 'Server error' });
+        next(error); // Pass other errors to the central handler
     }
-});
+};
+
+// GET /api/users/me - Get current user's profile
+router.get('/me', protect, getUserProfileHandler);
+
+// PUT /api/users/me - Update current user's profile
+router.put('/me', protect, updateUserProfileHandler);
 
 export default router;
