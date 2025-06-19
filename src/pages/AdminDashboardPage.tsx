@@ -21,8 +21,8 @@ interface AnalyticsData {
   uniqueVisitors: number;
   pageViews: number;
   averageSessionDuration: string;
-  mostVisitedPages?: { path: string; visits: number }[];
-  trafficSources?: { direct: number; organicSearch: number; referral: number };
+  newUsers?: number; // Added newUsers, optional as it comes from API
+  // mostVisitedPages and trafficSources were part of mock data, removed as not in GA API response
 }
 
 const AdminDashboardPage: React.FC = () => {
@@ -33,6 +33,11 @@ const AdminDashboardPage: React.FC = () => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  // State for conceptual GA Config inputs
+  const [gaMeasurementId, setGaMeasurementId] = useState('');
+  const [gaPropertyIdInput, setGaPropertyIdInput] = useState('');
+
 
   const fetchAllUsers = useCallback(async () => {
     const token = getAuthToken();
@@ -51,13 +56,9 @@ const AdminDashboardPage: React.FC = () => {
         if (response.status === 403) throw new Error('Access Denied: You do not have permission to view users.');
         throw new Error('Failed to fetch users list');
       }
-      // Mocking is_active for now as backend doesn't support it
-      const data: any[] = await response.json();
-      const usersWithActiveStatus = data.map(user => ({
-        ...user,
-        is_active: true, // Mocking all users as active initially
-      }));
-      setUsers(usersWithActiveStatus);
+      // Assuming backend /api/admin/users now returns is_active
+      const data: AdminUserView[] = await response.json();
+      setUsers(data); // Expect is_active to be part of the user data from backend
       trackEvent('Admin', 'admin_view_users_success', 'User list successfully fetched');
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -111,17 +112,63 @@ const AdminDashboardPage: React.FC = () => {
     const newActiveState = !currentIsActive;
     trackEvent('Admin', 'admin_toggle_user_active_status_click', `User: ${username} (${userId}) - New Status: ${newActiveState ? 'Active' : 'Inactive'}`);
 
-    // Placeholder: API call would happen here.
-    // For now, just show an alert and update local state for UI demo.
-    alert(`Placeholder: User '${username}' (ID: ${userId}) ${newActiveState ? 'activated' : 'deactivated'}. API call not implemented.`);
-
-    // Update local state to reflect the change immediately for UI
+    // Optimistically update UI
     setUsers(prevUsers =>
       prevUsers.map(user =>
         user.id === userId ? { ...user, is_active: newActiveState } : user
       )
     );
-    // In a real app, you'd likely call fetchAllUsers() or update based on API response.
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        alert("Authentication token not found. Please log in again.");
+        // Revert optimistic update if auth fails
+        setUsers(prevUsers =>
+          prevUsers.map(user =>
+            user.id === userId ? { ...user, is_active: currentIsActive } : user
+          )
+        );
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}/toggle-active`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ is_active: newActiveState }), // Body might not be strictly needed if backend just toggles
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to toggle active status. Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log(result.message); // Or use a success toast/notification
+
+      // If backend result differs from optimistic update (should not happen if API just toggles),
+      // you could update state again here based on result.isActive
+      // For now, optimistic update is assumed correct.
+
+    } catch (error) {
+      console.error('Error toggling user active status:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Could not update user status.'}`);
+      // Revert optimistic UI update on error
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === userId ? { ...user, is_active: currentIsActive } : user // Revert to original state
+        )
+      );
+    }
+  };
+
+  const handleSaveGASettings = () => {
+    trackEvent('Admin', 'admin_save_ga_settings_click_conceptual', `MeasurementID: ${gaMeasurementId}, PropertyID: ${gaPropertyIdInput}`);
+    alert(`Placeholder: Save GA settings clicked. Measurement ID: ${gaMeasurementId}, Property ID: ${gaPropertyIdInput}. API call not implemented.`);
+    // In a real scenario, you would make an API call here to save these settings.
   };
 
   // Main loading state can check both, or handle them separately in JSX
@@ -163,8 +210,54 @@ const AdminDashboardPage: React.FC = () => {
               <h3 className="text-slate-500 text-sm font-medium">Avg. Session</h3>
               <p className="text-3xl font-semibold text-slate-800">{analyticsData.averageSessionDuration}</p>
             </div>
+            {/* New Card for New Users */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-slate-500 text-sm font-medium">New Users (Last 7d)</h3>
+              <p className="text-3xl font-semibold text-slate-800">{analyticsData.newUsers ?? 'N/A'}</p>
+            </div>
           </div>
         )}
+      </section>
+
+      {/* GA Configuration Section (Conceptual) */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold text-slate-700 mb-6">Google Analytics Configuration (Conceptual)</h2>
+        <div className="bg-white p-6 rounded-lg shadow-md space-y-4">
+          <div>
+            <label htmlFor="gaMeasurementId" className="block text-sm font-medium text-slate-700">
+              Google Analytics Measurement ID (G-XXXX)
+            </label>
+            <input
+              type="text"
+              id="gaMeasurementId"
+              name="gaMeasurementId"
+              value={gaMeasurementId}
+              onChange={(e) => setGaMeasurementId(e.target.value)}
+              placeholder="G-XXXXXXXXXX"
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="gaPropertyIdInput" className="block text-sm font-medium text-slate-700">
+              Google Analytics Property ID
+            </label>
+            <input
+              type="text"
+              id="gaPropertyIdInput"
+              name="gaPropertyIdInput"
+              value={gaPropertyIdInput}
+              onChange={(e) => setGaPropertyIdInput(e.target.value)}
+              placeholder="123456789"
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <button
+            onClick={handleSaveGASettings}
+            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Save Settings (Placeholder)
+          </button>
+        </div>
       </section>
 
       {/* User Management Section */}
