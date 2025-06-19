@@ -1,16 +1,16 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction, Router, RequestHandler } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import pool from '../../db';
-import { JWT_SECRET } from '../../config';
+import pool from '../../db'; // Assuming db.ts is two levels up from routes/auth/
+import { JWT_SECRET } from '../../config'; // Assuming config.ts is two levels up
 
-const router = express.Router();
+const router = Router();
 
-// POST /api/auth/register
-router.post('/register', async (req: Request, res: Response) => {
+const registerHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
+        // It's common to send response directly for validation errors
         return res.status(400).json({ message: 'Username, email, and password are required' });
     }
 
@@ -31,6 +31,11 @@ router.post('/register', async (req: Request, res: Response) => {
             [username, email, password_hash]
         );
 
+        // Ensure result.insertId is valid before using it
+        if (!result || !result.insertId) {
+            // This case might indicate a DB issue not throwing an error but not returning expected result.
+            throw new Error('User registration failed, no insertId returned.');
+        }
         const newUser = { id: result.insertId, username, email };
 
         // Generate JWT
@@ -38,13 +43,12 @@ router.post('/register', async (req: Request, res: Response) => {
 
         res.status(201).json({ token, user: newUser });
     } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ message: 'Server error during registration' });
+        // Pass error to Express error handling middleware
+        next(error);
     }
-});
+};
 
-// POST /api/auth/login
-router.post('/login', async (req: Request, res: Response) => {
+const loginHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -79,9 +83,11 @@ router.post('/login', async (req: Request, res: Response) => {
             }
         });
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error during login' });
+        next(error);
     }
-});
+};
+
+router.post('/register', registerHandler);
+router.post('/login', loginHandler);
 
 export default router;
