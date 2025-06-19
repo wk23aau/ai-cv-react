@@ -1,9 +1,9 @@
 import express, { Response } from 'express'; // NextFunction can be omitted if not used
-import { BetaAnalyticsDataClient } from '@google-analytics/data';
+import { BetaAnalyticsDataClient, protos } from '@google-analytics/data'; // Added protos
 import fs from 'fs/promises'; // Added for file system operations
 import path from 'path'; // Added for path manipulation
 import { protect, admin, AuthRequest } from '../../middleware/authMiddleware'; // Added AuthRequest
-import { GA_PROPERTY_ID as ENV_GA_PROPERTY_ID } from '../../config'; // Renamed for clarity
+// Removed import of GA_PROPERTY_ID from config
 
 const router = express.Router();
 
@@ -50,8 +50,10 @@ router.get('/overview', protect, admin, async (req: AuthRequest, res: Response) 
 
   // 2. Fallback to environment variable if not found in file
   if (!finalPropertyId) {
-    if (ENV_GA_PROPERTY_ID && ENV_GA_PROPERTY_ID !== 'YOUR_GA_PROPERTY_ID') {
-      finalPropertyId = ENV_GA_PROPERTY_ID;
+    // Use process.env directly
+    const envGaPropertyId = process.env.GA_PROPERTY_ID;
+    if (envGaPropertyId && envGaPropertyId !== 'YOUR_GA_PROPERTY_ID') {
+      finalPropertyId = envGaPropertyId;
       propertyIdSource = 'environment variable';
       console.log('Using GA Property ID from environment variable:', finalPropertyId);
     }
@@ -90,7 +92,7 @@ router.get('/overview', protect, admin, async (req: AuthRequest, res: Response) 
     let screenPageViews = 0;
     let averageSessionDuration = "0s"; // Default to "0s" or 0 if you prefer number
 
-    response.rows?.forEach(row => {
+    response.rows?.forEach((row: protos.google.analytics.data.v1beta.IRow) => {
       // Each row typically corresponds to dimensions, but if no dimensions, there's one row for totals.
       // The order of metricValues corresponds to the order of metrics in the request.
       if (row.metricValues) {
