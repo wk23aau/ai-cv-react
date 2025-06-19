@@ -329,6 +329,6 @@ Focus on making the CV highly competitive for the specific Job Description.
         next(new Error(`Failed to generate AI content: ${message}`));
         return;
     }
-}) /* Removed cast here as per general instruction */);
+});
 
 export default router;
