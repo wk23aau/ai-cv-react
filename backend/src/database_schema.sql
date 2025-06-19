@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- CV Templates table
 CREATE TABLE IF NOT EXISTS cv_templates (
-    id VARCHAR(50) PRIMARY KEY, -- Changed from INT AUTO_INCREMENT
+    id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci PRIMARY KEY, -- Explicit charset/collation
     name VARCHAR(100) NOT NULL,
     description TEXT,
     preview_image_url VARCHAR(255)
@@ -26,17 +26,16 @@ CREATE TABLE IF NOT EXISTS cv_templates (
 CREATE TABLE IF NOT EXISTS cvs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    template_id VARCHAR(50) DEFAULT 'classic', -- Changed from INT, added default
+    template_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'classic', -- Explicit charset/collation
     cv_data JSON NOT NULL,
     name VARCHAR(255) DEFAULT 'Untitled CV',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (template_id) REFERENCES cv_templates(id) ON DELETE SET NULL -- Now references VARCHAR(50)
+    FOREIGN KEY (template_id) REFERENCES cv_templates(id) ON DELETE SET NULL
 );
 
 -- Seed some default CV templates
--- Explicitly listing 'id' column and using string IDs
 INSERT INTO cv_templates (id, name, description, preview_image_url) VALUES
 ('classic', 'Classic', 'A traditional and elegant CV template.', '/previews/classic.png'),
 ('modern', 'Modern', 'A sleek and contemporary CV template.', '/previews/modern.png');
