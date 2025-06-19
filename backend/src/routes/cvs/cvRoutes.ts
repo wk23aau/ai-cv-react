@@ -1,13 +1,13 @@
-import express, { Router, Response, NextFunction } from 'express'; // Removed RequestHandler from direct import
+import express, { Router, Request, Response, NextFunction } from 'express';
 import pool from '../../db';
-import { protect, AuthRequest } from '../../middleware/authMiddleware';
+import { protect } from '../../middleware/authMiddleware'; // Removed AuthRequest import
 
 const router = Router();
 
-// Changed req type to AuthRequest, removed internal cast
-const createCvHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Changed req type from AuthRequest to Request
+const createCvHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { cv_data, template_id, name } = req.body;
-    const userId = req.user?.userId; // Direct use of req.user
+    const userId = req.user?.userId; // Direct use of req.user (from augmented Request)
 
     if (!cv_data) {
         res.status(400).json({ message: 'cv_data is required' });
@@ -40,9 +40,9 @@ const createCvHandler = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 };
 
-// Changed req type to AuthRequest, removed internal cast
-const getAllCvsHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const userId = req.user?.userId; // Direct use of req.user
+// Changed req type from AuthRequest to Request
+const getAllCvsHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?.userId;
     try {
         const [cvs] = await pool.query<any[]>('SELECT id, user_id, template_id, name, created_at, updated_at FROM cvs WHERE user_id = ? ORDER BY updated_at DESC', [userId]);
         res.json(cvs);
@@ -51,10 +51,10 @@ const getAllCvsHandler = async (req: AuthRequest, res: Response, next: NextFunct
     }
 };
 
-// Changed req type to AuthRequest, removed internal cast
-const getCvByIdHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Changed req type from AuthRequest to Request
+const getCvByIdHandler = async (req: Request, res: Response, next: NextFunction) => {
     const cvId = req.params.id;
-    const userId = req.user?.userId; // Direct use of req.user
+    const userId = req.user?.userId;
     try {
         const [cvs] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (cvs.length === 0) {
@@ -71,10 +71,10 @@ const getCvByIdHandler = async (req: AuthRequest, res: Response, next: NextFunct
     }
 };
 
-// Changed req type to AuthRequest, removed internal cast
-const updateCvHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Changed req type from AuthRequest to Request
+const updateCvHandler = async (req: Request, res: Response, next: NextFunction) => {
     const cvId = req.params.id;
-    const userId = req.user?.userId; // Direct use of req.user
+    const userId = req.user?.userId;
     const { cv_data, template_id, name } = req.body;
 
     if (cv_data === undefined && template_id === undefined && name === undefined) {
@@ -119,10 +119,10 @@ const updateCvHandler = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 };
 
-// Changed req type to AuthRequest, removed internal cast
-const deleteCvHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Changed req type from AuthRequest to Request
+const deleteCvHandler = async (req: Request, res: Response, next: NextFunction) => {
     const cvId = req.params.id;
-    const userId = req.user?.userId; // Direct use of req.user
+    const userId = req.user?.userId;
     try {
         const [result] = await pool.query<any>('DELETE FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (result.affectedRows === 0) {
@@ -135,11 +135,11 @@ const deleteCvHandler = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 };
 
-// Apply 'as express.RequestHandler' casts
-router.post('/', protect, createCvHandler as express.RequestHandler);
-router.get('/', protect, getAllCvsHandler as express.RequestHandler);
-router.get('/:id', protect, getCvByIdHandler as express.RequestHandler);
-router.put('/:id', protect, updateCvHandler as express.RequestHandler);
-router.delete('/:id', protect, deleteCvHandler as express.RequestHandler);
+// Removed 'as express.RequestHandler' casts
+router.post('/', protect, createCvHandler);
+router.get('/', protect, getAllCvsHandler);
+router.get('/:id', protect, getCvByIdHandler);
+router.put('/:id', protect, updateCvHandler);
+router.delete('/:id', protect, deleteCvHandler);
 
 export default router;

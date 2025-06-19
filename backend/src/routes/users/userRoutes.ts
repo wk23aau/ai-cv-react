@@ -1,13 +1,13 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import pool from '../../db';
-import { protect, AuthRequest } from '../../middleware/authMiddleware';
-// import bcrypt from 'bcrypt'; // REMOVE THIS LINE
+import { protect } from '../../middleware/authMiddleware'; // Removed AuthRequest import
 
 const router = Router();
 
-const getUserProfileHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Changed req type from AuthRequest to Request
+const getUserProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // req.user is now properly typed via AuthRequest from 'protect' middleware
+        // req.user is now available due to module augmentation
         const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user?.userId]);
         if (users.length === 0) {
             res.status(404).json({ message: 'User not found' });
@@ -19,11 +19,12 @@ const getUserProfileHandler = async (req: AuthRequest, res: Response, next: Next
     }
 };
 
-const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const { username, email } = req.body; // Removed password
-    const userId = req.user?.userId;
+// Changed req type from AuthRequest to Request
+const updateUserProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const { username, email } = req.body; // Password update logic already removed
+    const userId = req.user?.userId; // req.user is now available due to module augmentation
 
-    if (!username && !email) { // Condition updated
+    if (!username && !email) {
         res.status(400).json({ message: 'No fields to update' });
         return;
     }
@@ -40,23 +41,11 @@ const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: N
             query += 'email = ?, ';
             params.push(email);
         }
-        // Password update logic removed
 
         query += 'updated_at = CURRENT_TIMESTAMP WHERE id = ?';
         params.push(userId);
 
-        // Remove trailing comma if any before 'updated_at'
-        // A more robust way to build the query might be to collect field updates in an array and then join them.
-        // For example: const setClauses = []; if (username) setClauses.push('username = ?'); ... query += setClauses.join(', ');
-        // However, the current replace method works for the specific fields here.
-        query = query.replace(', updated_at', ' updated_at'); // Clean up query string if only one field was present before updated_at
-        if (query.startsWith('UPDATE users SET updated_at')) { // if no fields were added, username or email
-             query = query.replace('updated_at = CURRENT_TIMESTAMP WHERE id = ?', 'id = ?'); // Avoid updating only updated_at if no other changes
-             // This case should ideally be caught by the "No fields to update" check,
-             // but as a safeguard if only `updated_at` was the change (which is implicitly done).
-             // Or, ensure the query is only built if there are actual changes.
-             // For now, the existing logic means at least one of username/email must be present.
-        }
+        query = query.replace(', updated_at', ' updated_at');
 
 
         const [result] = await pool.query<any>(query, params);
@@ -78,8 +67,8 @@ const updateUserProfileHandler = async (req: AuthRequest, res: Response, next: N
     }
 };
 
-// Reinstate 'as express.RequestHandler'
-router.get('/me', protect, getUserProfileHandler as express.RequestHandler);
-router.put('/me', protect, updateUserProfileHandler as express.RequestHandler);
+// Removed 'as express.RequestHandler' casts
+router.get('/me', protect, getUserProfileHandler);
+router.put('/me', protect, updateUserProfileHandler);
 
 export default router;
