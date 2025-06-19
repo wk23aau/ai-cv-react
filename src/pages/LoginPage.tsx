@@ -17,9 +17,15 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     // If user is already authenticated, redirect them from login page
     if (auth.isAuthenticated) {
-      navigate(from, { replace: true });
+      if (auth.user?.is_admin) {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        // If 'from' is an admin path, redirect to user dashboard, otherwise to 'from'
+        const userFromPath = (from === '/admin/dashboard' || from.startsWith('/admin/')) ? '/dashboard' : from;
+        navigate(userFromPath, { replace: true });
+      }
     }
-  }, [auth.isAuthenticated, navigate, from]);
+  }, [auth.isAuthenticated, auth.user, navigate, from]);
 
   useEffect(() => {
     if (location.state?.message) {
@@ -34,9 +40,17 @@ const LoginPage: React.FC = () => {
     if (successMessage) setSuccessMessage(null);
 
     try {
-      await auth.login({ email, password });
-      // Navigate after successful login, AuthProvider handles state and localStorage
-      navigate(from, { replace: true });
+      const loggedInUser = await auth.login({ email, password }); // login should return the user object
+
+      // Determine redirect path based on user role
+      if (loggedInUser?.is_admin) {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        // If 'from' is still '/dashboard' (default) or another non-admin page, use it.
+        // If 'from' was an admin page and user is not admin, redirect to user dashboard.
+        const userFromPath = (from === '/admin/dashboard' || from.startsWith('/admin/')) ? '/dashboard' : from;
+        navigate(userFromPath, { replace: true });
+      }
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);

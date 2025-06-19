@@ -184,9 +184,12 @@ const DashboardPage: React.FC = () => {
 
 
   return (
-    <div className="container mx-auto p-4 md:p-8 bg-slate-100 min-h-screen">
-      <h1 className="text-4xl font-bold text-slate-800 mb-10">Welcome, {authUser?.username || 'User'}!</h1>
+    // This page will be rendered within AppLayout (MainHeader, MainFooter)
+    <div className="container mx-auto p-4 md:p-8">
+      <h1 className="text-3xl font-bold text-slate-800 mb-6">My Dashboard</h1>
+      <p className="text-lg text-slate-600 mb-10">Welcome back, {authUser?.username || 'User'}!</p>
 
+      {/* My Profile Section */}
       <section className="mb-12 bg-white p-6 rounded-xl shadow-lg">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold text-slate-700">My Profile</h2>
@@ -226,13 +229,19 @@ const DashboardPage: React.FC = () => {
                 </div>
             </form>
         )}
+         {/* Placeholder text as per requirement, though current implementation is more functional */}
+        <p className="text-sm text-slate-500 mt-2">
+            Manage your personal information, security settings, and communication preferences here.
+            (Current functionality allows username, email, and password updates.)
+        </p>
       </section>
 
-      <section className="bg-white p-6 rounded-xl shadow-lg">
+      {/* My CVs Section */}
+      <section className="mb-12 bg-white p-6 rounded-xl shadow-lg">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold text-slate-700">My CVs</h2>
             <Link
-                to="/editor"
+                to="/editor" // This is the "Create New CV" button
                 className="bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-lg text-sm shadow-sm hover:shadow-md transition-all"
             >
                 + Create New CV
@@ -243,6 +252,10 @@ const DashboardPage: React.FC = () => {
         ) : cvs.length === 0 ? (
           <p className="text-slate-600 text-center py-4">You haven't created any CVs yet. Click "Create New CV" to get started!</p>
         ) : (
+          {/* Placeholder text as per requirement, though current implementation is more functional */}
+          <p className="text-sm text-slate-500 mb-4">
+            You will be able to manage your CVs here. (Current functionality allows creating, viewing, editing, and deleting CVs.)
+          </p>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">

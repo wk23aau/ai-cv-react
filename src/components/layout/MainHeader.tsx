@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom'; // Import NavLink
 import { useAuth } from '../../AuthContext'; // Adjust path as necessary
 import { SparklesIcon } from '../../constants'; // Assuming this icon is appropriate for logo
 
@@ -11,6 +11,13 @@ const MainHeader: React.FC = () => {
     logout();
     navigate('/'); // Redirect to home page after logout
   };
+
+  const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
+    `px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-slate-700 ${
+      isActive ? 'bg-slate-800 text-sky-400' : 'text-slate-300'
+    }`;
+
+  const ctaLinkClasses = "px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-sm font-medium transition-colors";
 
   return (
     <header className="bg-slate-900 text-slate-100 p-4 shadow-lg border-b border-slate-700">
@@ -24,23 +31,27 @@ const MainHeader: React.FC = () => {
             <div className="text-sm text-slate-400">Loading...</div>
           ) : isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="px-3 py-2 hover:bg-slate-700 rounded-md text-sm font-medium transition-colors">Dashboard</Link>
-              <Link to="/editor" className="px-3 py-2 hover:bg-slate-700 rounded-md text-sm font-medium transition-colors">New CV</Link>
+              <NavLink to="/" className={navLinkClasses} end>Home</NavLink>
+              <NavLink to="/dashboard" className={navLinkClasses}>My Dashboard</NavLink>
+              {user?.isAdmin && (
+                <NavLink to="/admin/dashboard" className={navLinkClasses}>Admin Dashboard</NavLink>
+              )}
+              <NavLink to="/editor" className={navLinkClasses}>New CV</NavLink>
               <span className="text-sm text-slate-400 hidden md:inline">
                 Hi, {user?.username || 'User'}
                 {user?.isAdmin && (<span className="ml-1 text-xs text-sky-400">(Admin)</span>)}
               </span>
               <button
                 onClick={handleLogout}
-                className="px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-sm font-medium transition-colors"
+                className={ctaLinkClasses}
               >
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="px-3 py-2 hover:bg-slate-700 rounded-md text-sm font-medium transition-colors">Login</Link>
-              <Link to="/signup" className="px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-sm font-medium transition-colors">Sign Up</Link>
+              <NavLink to="/login" className={navLinkClasses}>Login</NavLink>
+              <NavLink to="/signup" className={ctaLinkClasses}>Sign Up</NavLink>
             </>
           )}
         </nav>
