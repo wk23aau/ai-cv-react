@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- CV Templates table
 CREATE TABLE IF NOT EXISTS cv_templates (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY, -- Changed from INT AUTO_INCREMENT
     name VARCHAR(100) NOT NULL,
     description TEXT,
     preview_image_url VARCHAR(255)
@@ -26,17 +26,21 @@ CREATE TABLE IF NOT EXISTS cv_templates (
 CREATE TABLE IF NOT EXISTS cvs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    template_id INT,
+    template_id VARCHAR(50) DEFAULT 'classic', -- Changed from INT, added default
     cv_data JSON NOT NULL,
     name VARCHAR(255) DEFAULT 'Untitled CV',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (template_id) REFERENCES cv_templates(id) ON DELETE SET NULL
+    FOREIGN KEY (template_id) REFERENCES cv_templates(id) ON DELETE SET NULL -- Now references VARCHAR(50)
 );
 
--- Seed some default CV templates (optional, but good for development)
-INSERT INTO cv_templates (name, description, preview_image_url) VALUES
-('Classic', 'A traditional and elegant CV template.', '/previews/classic.png'),
-('Modern', 'A sleek and contemporary CV template.', '/previews/modern.png')
-ON DUPLICATE KEY UPDATE name = name; -- Do nothing if they already exist
+-- Seed some default CV templates
+-- Explicitly listing 'id' column and using string IDs
+INSERT INTO cv_templates (id, name, description, preview_image_url) VALUES
+('classic', 'Classic', 'A traditional and elegant CV template.', '/previews/classic.png'),
+('modern', 'Modern', 'A sleek and contemporary CV template.', '/previews/modern.png');
+-- Removed ON DUPLICATE KEY UPDATE as primary key 'id' will prevent duplicates,
+-- and for seeding, a clean setup is often preferred. If the table is dropped and recreated,
+-- this insert will always work. For idempotent re-runs without dropping,
+-- INSERT IGNORE or manual checks would be needed.
