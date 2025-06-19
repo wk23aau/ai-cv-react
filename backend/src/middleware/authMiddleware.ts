@@ -12,21 +12,8 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction) => 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         try {
-            // Define a more specific type for the decoded token if possible, matching tokenPayload
-            const decoded = jwt.verify(token, JWT_SECRET) as {
-                userId: number;
-                username: string;
-                email: string; // email is in the token
-                isAdmin: boolean; // Expect isAdmin to be boolean from token now
-                iat: number;
-                exp: number
-            };
-            // Ensure conversion if isAdmin might not be a boolean strictly from token
-            req.user = {
-                userId: decoded.userId,
-                username: decoded.username,
-                isAdmin: !!decoded.isAdmin // Explicitly make it boolean
-            };
+            const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; username: string; isAdmin?: boolean; iat: number; exp: number };
+            req.user = { userId: decoded.userId, username: decoded.username, isAdmin: decoded.isAdmin };
             next();
         } catch (error) {
             console.error('Token verification error:', error);
