@@ -61,12 +61,12 @@ const AdminDashboardPage: React.FC = () => {
       // Assuming backend /api/admin/users now returns is_active
       const data: AdminUserView[] = await response.json();
       setUsers(data); // Expect is_active to be part of the user data from backend
-      trackEvent('Admin', 'admin_view_users_success', 'User list successfully fetched');
+      trackEvent('admin_view_users_success', { event_category: 'Admin', event_label: 'User list successfully fetched' });
     } catch (err) {
       console.error("Error fetching users:", err);
       const message = err instanceof Error ? err.message : 'Could not fetch users';
       setUsersError(message);
-      trackEvent('Admin', 'admin_view_users_failed', message);
+      trackEvent('admin_view_users_failed', { event_category: 'Admin', event_label: message });
     } finally {
       setIsLoadingUsers(false);
     }
@@ -133,7 +133,10 @@ const AdminDashboardPage: React.FC = () => {
   }, [fetchAllUsers, fetchAnalyticsData, fetchGASettings]);
 
   const handleToggleAdminStatus = async (userId: string | number, currentIsAdmin: boolean) => {
-    trackEvent('Admin', 'admin_toggle_admin_status_click', `User ID: ${userId} - Current Admin: ${currentIsAdmin}`); // Added event tracking
+    trackEvent('admin_toggle_admin_status_click', {
+      event_category: 'Admin',
+      event_label: `User ID: ${userId} - Current Admin: ${currentIsAdmin}`
+    });
     // Placeholder for API call: PUT /api/admin/users/:userId/toggle-admin
     alert(`Placeholder: Toggle admin status for user ${userId} to ${!currentIsAdmin}. API call not implemented.`);
     // On success, call fetchAllUsers() to refresh the list.
@@ -141,7 +144,12 @@ const AdminDashboardPage: React.FC = () => {
 
   const handleToggleUserActiveStatus = async (userId: string | number, currentIsActive: boolean, username: string) => {
     const newActiveState = !currentIsActive;
-    trackEvent('Admin', 'admin_toggle_user_active_status_click', `User: ${username} (${userId}) - New Status: ${newActiveState ? 'Active' : 'Inactive'}`);
+    trackEvent('admin_toggle_user_active_status_click', {
+      event_category: 'Admin',
+      event_label: `User: ${username} (${userId}) - New Status: ${newActiveState ? 'Active' : 'Inactive'}`,
+      user_id: userId,
+      new_status: newActiveState
+    });
 
     // Optimistically update UI
     setUsers(prevUsers =>
@@ -197,7 +205,11 @@ const AdminDashboardPage: React.FC = () => {
   };
 
   const handleSaveGASettings = async () => {
-    trackEvent('Admin', 'admin_save_ga_settings_click', `MeasurementID: ${gaMeasurementId}, PropertyID: ${gaPropertyIdInput}`);
+    trackEvent('admin_save_ga_settings_click', {
+      event_category: 'Admin',
+      measurement_id: gaMeasurementId, // Using more structured params
+      property_id: gaPropertyIdInput
+    });
 
     const token = getAuthToken();
     if (!token) {
