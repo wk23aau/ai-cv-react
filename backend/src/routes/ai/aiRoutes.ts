@@ -45,7 +45,8 @@ interface TailoredCVUpdate {
 // POST /api/ai/generate
 router.post('/generate', protect, async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!ai) {
-        return res.status(503).json({ message: "AI Service is not configured or API key is missing." });
+        res.status(503).json({ message: "AI Service is not configured or API key is missing." });
+        return;
     }
 
     const { sectionType, userInput, context }: GenerateAIContentRequest = req.body;
@@ -56,7 +57,8 @@ router.post('/generate', protect, async (req: AuthRequest, res: Response, next: 
     // console.log(`  Context: ${JSON.stringify(context, null, 2)}`); // Can be verbose
 
     if (!sectionType || userInput === undefined) { // userInput can be an empty string
-        return res.status(400).json({ message: 'sectionType and userInput are required fields.' });
+        res.status(400).json({ message: 'sectionType and userInput are required fields.' });
+        return;
     }
 
     let prompt = "";
@@ -236,7 +238,7 @@ Focus on making the CV highly competitive for the specific Job Description.
                 : { }
         });
 
-        let textOutput = response.text.trim();
+        let textOutput = response.text ? response.text.trim() : "";
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
         const match = textOutput.match(fenceRegex);
         if (match && match[2]) {
@@ -276,18 +278,34 @@ Focus on making the CV highly competitive for the specific Job Description.
                                        ? (parsedCVData.personalInfo?.title || "Job Title (from JD)")
                                        : userInput;
 
-                const defaultPersonalInfo: PersonalInfo = {
+                const geminiPersonalInfo = parsedCVData.personalInfo || {};
+                const personalInfoDefaults: PersonalInfo = {
                     name: "Your Name (Update Me!)",
-                    title: extractedTitle,
-                    phone: "", email: "", linkedin: "", github: "", portfolio: "", address: "",
+                    title: extractedTitle, // Default title
+                    phone: "",
+                    email: "",
+                    linkedin: "",
+                    github: "",
+                    portfolio: "",
+                    address: "",
                     portraitUrl: "",
-                    showPortrait: false, showPhone: true, showEmail: true,
-                    showLinkedin: true, showGithub: true, showPortfolio: true, showAddress: false,
-                    // Ensure all fields from parsedCVData.personalInfo are included or defaulted
-                    ...parsedCVData.personalInfo, // Spread Gemini's version first
-                    title: parsedCVData.personalInfo?.title || extractedTitle, // Ensure title is not overridden by spread if empty
+                    showPortrait: false,
+                    showPhone: true,
+                    showEmail: true,
+                    showLinkedin: true,
+                    showGithub: true,
+                    showPortfolio: true,
+                    showAddress: false,
                 };
-                parsedCVData.personalInfo = defaultPersonalInfo;
+
+                const finalPersonalInfo: PersonalInfo = {
+                    ...personalInfoDefaults, // Start with defaults
+                    ...geminiPersonalInfo,   // Override with Gemini's data if available
+                    // Ensure critical fields like title have a final say if Gemini's is empty or missing
+                    title: geminiPersonalInfo?.title || extractedTitle,
+                    name: geminiPersonalInfo?.name || personalInfoDefaults.name // Ensure name isn't accidentally blanked if not in gemini's output
+                };
+                parsedCVData.personalInfo = finalPersonalInfo;
 
                 parsedCVData.experience = (parsedCVData.experience || []).map(exp => ({ ...exp, id: crypto.randomUUID() }));
                 parsedCVData.education = (parsedCVData.education || []).map(edu => ({ ...edu, id: crypto.randomUUID() }));
