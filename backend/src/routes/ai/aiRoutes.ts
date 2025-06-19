@@ -43,18 +43,18 @@ router.post('/generate', protect, async (req: Request, res: Response, next: Next
         return res.status(401).json({ error: 'Not authorized, user data not found in AI route' });
     }
     if (!ai) {
-        res.status(503).json({ message: "AI Service is not configured or API key is missing." });
+        res.status(503).json({ error: "AI Service is not configured or API key is missing." });
         return;
     }
 
     const { sectionType, userInput, context }: GenerateAIContentRequest = req.body;
 
-    console.log(`[AI Route /generate] Received request from user: ${req.user.userId}`); // Safe access
-    console.log(`  Section Type: ${sectionType}`);
-    console.log(`  User Input length: ${userInput?.length || 0}`);
+    // console.log(`[AI Route /generate] Received request from user: ${req.user.userId}`); // Safe access
+    // console.log(`  Section Type: ${sectionType}`);
+    // console.log(`  User Input length: ${userInput?.length || 0}`);
 
     if (!sectionType || userInput === undefined) {
-        res.status(400).json({ message: 'sectionType and userInput are required fields.' });
+        res.status(400).json({ error: 'sectionType and userInput are required fields.' });
         return;
     }
 
@@ -218,7 +218,7 @@ Focus on making the CV highly competitive for the specific Job Description.
             break;
         default:
             console.error(`Unsupported section type for generation: ${sectionType}`);
-            res.status(400).json({ message: `Unsupported section type: ${sectionType}` });
+            res.status(400).json({ error: `Unsupported section type: ${sectionType}` });
             return;
     }
 
@@ -230,8 +230,26 @@ Focus on making the CV highly competitive for the specific Job Description.
                 ? { generationConfig: { responseMimeType: "application/json" as const } }
                 : {})
         };
-        const response: GenerateContentResponse = await ai.models.generateContent(requestPayload);
-        let textOutput = response.text ? response.text.trim() : "";
+        const generationResult = await ai.models.generateContent(requestPayload);
+        let textOutput = "";
+        if (generationResult.response && typeof generationResult.response.text === 'function') {
+          textOutput = generationResult.response.text().trim();
+        } else {
+          console.warn('[AI Route /generate] Gemini response.response.text() was not available or response was not structured as expected. Attempting to extract text from candidates.');
+          if (generationResult.response && generationResult.response.candidates && generationResult.response.candidates.length > 0) {
+            const firstCandidate = generationResult.response.candidates[0];
+            if (firstCandidate.content && firstCandidate.content.parts && firstCandidate.content.parts.length > 0 && typeof firstCandidate.content.parts[0].text === 'string') {
+              textOutput = firstCandidate.content.parts[0].text.trim();
+            } else if (typeof firstCandidate.text === 'string') { // some older or variant structures might have text directly on candidate
+               textOutput = firstCandidate.text.trim();
+            }
+          }
+          if (!textOutput) {
+            console.error('[AI Route /generate] Failed to extract text from Gemini response. Response structure:', JSON.stringify(generationResult.response, null, 2).substring(0, 500));
+            // Consider calling next(new Error("AI service returned an empty or unreadable response.")) here if text is crucial
+          }
+        }
+
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
         const match = textOutput.match(fenceRegex);
         if (match && match[2]) {
@@ -244,17 +262,17 @@ Focus on making the CV highly competitive for the specific Job Description.
             try {
                 processedResponse = JSON.parse(textOutput);
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                if (textOutput.includes(',')) processedResponse = textOutput.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
-                else processedResponse = textOutput ? [textOutput] : [];
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
+                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
+                return;
             }
         } else if (sectionType === "new_experience_entry") {
             try {
                 const parsedEntry: Omit<ExperienceEntry, 'id'> = JSON.parse(textOutput);
                 processedResponse = { ...parsedEntry, id: crypto.randomUUID() };
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                next(new Error(`Gemini returned an invalid format for new experience entry. Raw: ${textOutput.substring(0, 200)}`));
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
+                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
                 return;
             }
         } else if (sectionType === "new_education_entry") {
@@ -262,8 +280,8 @@ Focus on making the CV highly competitive for the specific Job Description.
                 const parsedEntry: Omit<EducationEntry, 'id'> = JSON.parse(textOutput);
                 processedResponse = { ...parsedEntry, id: crypto.randomUUID() };
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                next(new Error(`Gemini returned an invalid format for new education entry. Raw: ${textOutput.substring(0, 200)}`));
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
+                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
                 return;
             }
         } else if (sectionType === "initial_cv_from_title" || sectionType === "initial_cv_from_job_description") {
@@ -297,8 +315,8 @@ Focus on making the CV highly competitive for the specific Job Description.
                 parsedCVData.skills = (parsedCVData.skills || []).map(skill => ({ ...skill, id: crypto.randomUUID() }));
                 processedResponse = parsedCVData;
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                next(new Error(`Gemini returned an invalid format for initial CV data. Raw: ${textOutput.substring(0, 200)}`));
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
+                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
                 return;
             }
         } else if (sectionType === "tailor_cv_to_job_description") {
@@ -312,8 +330,8 @@ Focus on making the CV highly competitive for the specific Job Description.
                 }
                 processedResponse = tailoredUpdate;
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                next(new Error(`Gemini returned an invalid format for tailored CV data. Raw: ${textOutput.substring(0, 200)}`));
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
+                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
                 return;
             }
         } else {

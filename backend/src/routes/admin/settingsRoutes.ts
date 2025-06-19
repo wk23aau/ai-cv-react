@@ -1,42 +1,18 @@
 import express, { Request, Response, NextFunction } from 'express';
-import fs from 'fs/promises';
-import path from 'path';
 import { protect, admin } from '../../middleware/authMiddleware';
+import { readGaConfig, writeGaConfig } from '../../utils/gaConfigUtils'; // Adjusted path
 
 const router = express.Router();
-
-const GA_CONFIG_PATH = path.join(__dirname, '../../../ga_config.json');
-
-interface GaConfig {
-  measurementId?: string;
-  propertyId?: string;
-}
-
-async function readGaConfig(): Promise<GaConfig> {
-  try {
-    const data = await fs.readFile(GA_CONFIG_PATH, 'utf-8');
-    return JSON.parse(data) as GaConfig;
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      return {};
-    }
-    throw error;
-  }
-}
-
-async function writeGaConfig(config: GaConfig): Promise<void> {
-  await fs.writeFile(GA_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
-}
 
 router.post('/ga', protect, admin, async (req: Request, res: Response, next: NextFunction) => {
   const { measurementId, propertyId } = req.body;
 
   if (typeof measurementId !== 'string' || typeof propertyId !== 'string') {
-    res.status(400).json({ message: 'Measurement ID and Property ID must be strings.' }); // Consider { error: 'message' }
+    res.status(400).json({ error: 'Measurement ID and Property ID must be strings.' });
     return;
   }
   if (!measurementId.trim() || !propertyId.trim()) {
-    res.status(400).json({ message: 'Measurement ID and Property ID cannot be empty.' }); // Consider { error: 'message' }
+    res.status(400).json({ error: 'Measurement ID and Property ID cannot be empty.' });
     return;
   }
 

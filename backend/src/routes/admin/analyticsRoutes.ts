@@ -1,17 +1,9 @@
 import express, { Request, Response } from 'express';
 import { BetaAnalyticsDataClient, protos } from '@google-analytics/data';
-import fs from 'fs/promises';
-import path from 'path';
 import { protect, admin } from '../../middleware/authMiddleware';
+import { readGaConfig } from '../../utils/gaConfigUtils'; // Adjusted path
 
 const router = express.Router();
-
-const GA_CONFIG_PATH = path.join(__dirname, '../../../ga_config.json');
-
-interface GaConfigFile {
-  measurementId?: string;
-  propertyId?: string;
-}
 
 const analyticsDataClient = new BetaAnalyticsDataClient();
 
@@ -20,17 +12,19 @@ router.get('/overview', protect, admin, async (req: Request, res: Response) => {
   let propertyIdSource = '';
 
   try {
-    const data = await fs.readFile(GA_CONFIG_PATH, 'utf-8');
-    const configFromFile = JSON.parse(data) as GaConfigFile;
+    const configFromFile = await readGaConfig();
     if (configFromFile.propertyId && configFromFile.propertyId.trim() !== '') {
       finalPropertyId = configFromFile.propertyId.trim();
       propertyIdSource = 'ga_config.json';
       console.log('Using GA Property ID from ga_config.json:', finalPropertyId);
     }
   } catch (error: any) {
-    if (error.code !== 'ENOENT') {
-      console.error('Error reading ga_config.json:', error.message);
-    }
+    // If readGaConfig throws (e.g. file unreadable, not just ENOENT), it's an actual error.
+    // ENOENT is handled by readGaConfig returning {}, so propertyId would be undefined.
+    console.error('Error processing GA config for analytics:', error.message);
+    // We can let the process continue to check env vars, but log this specific error.
+    // If the error from readGaConfig is critical and should stop execution,
+    // we might re-throw or send a response here. For now, logging and continuing.
   }
 
   if (!finalPropertyId) {
@@ -45,7 +39,7 @@ router.get('/overview', protect, admin, async (req: Request, res: Response) => {
   if (!finalPropertyId || finalPropertyId === 'YOUR_GA_PROPERTY_ID') {
     console.error('GA Property ID is not configured (checked file and environment).');
     res.status(500).json({
-      message: 'Google Analytics Property ID is not configured on the server. Please set it in Admin > GA Configuration or via the GA_PROPERTY_ID environment variable.'
+      error: 'Google Analytics Property ID is not configured on the server. Please set it in Admin > GA Configuration or via the GA_PROPERTY_ID environment variable.'
     });
     return;
   }
@@ -112,7 +106,7 @@ router.get('/overview', protect, admin, async (req: Request, res: Response) => {
     }
 
     res.status(500).json({
-        message: errorMessage, // Consider changing to { error: errorMessage } for consistency
+        error: errorMessage,
     });
     return;
   }

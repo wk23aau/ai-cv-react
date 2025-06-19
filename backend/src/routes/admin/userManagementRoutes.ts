@@ -14,7 +14,7 @@ router.put('/:userId/toggle-active', protect, admin, async (req: Request, res: R
   const { userId: targetUserIdString } = req.params; // Renamed to avoid conflict with potential req.user.userId
 
   if (!targetUserIdString || isNaN(parseInt(targetUserIdString))) {
-    res.status(400).json({ message: 'Valid User ID is required.' }); // Consider { error: 'message' }
+    res.status(400).json({ error: 'Valid User ID is required.' });
     return;
   }
   const targetUserId = parseInt(targetUserIdString);
@@ -34,7 +34,7 @@ router.put('/:userId/toggle-active', protect, admin, async (req: Request, res: R
     const [rows] = await connection.query<RowDataPacket[]>('SELECT id, is_active FROM users WHERE id = ?', [targetUserId]);
 
     if (rows.length === 0) {
-      res.status(404).json({ message: 'User not found.' }); // Consider { error: 'message' }
+      res.status(404).json({ error: 'User not found.' });
       return;
     }
 
@@ -50,7 +50,7 @@ router.put('/:userId/toggle-active', protect, admin, async (req: Request, res: R
     if (updateResult.affectedRows === 0) {
       // This could also mean the status was already what we tried to set it to,
       // or user just got deleted. For simplicity, treating as an issue.
-      res.status(500).json({ message: 'Failed to update user status, user may have been deleted or status unchanged.' }); // Consider { error: 'message' }
+      res.status(500).json({ error: 'Failed to update user status, user may have been deleted or status unchanged.' });
       return;
     }
 

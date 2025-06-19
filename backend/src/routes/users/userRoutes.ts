@@ -18,7 +18,7 @@ const getUserProfileHandler: RequestHandler = async (
     const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user.userId]);
 
     if (users.length === 0) {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
     res.json(users[0]);
@@ -42,7 +42,7 @@ const updateUserProfileHandler: RequestHandler = async (
     const userId = req.user.userId;
 
     if (!username && !email) {
-      res.status(400).json({ message: 'No fields to update' });
+      res.status(400).json({ error: 'No fields to update' });
       return;
     }
 
@@ -65,7 +65,7 @@ const updateUserProfileHandler: RequestHandler = async (
     const [result] = await pool.query<any>(query, params);
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ message: 'User not found or no changes made' });
+      res.status(404).json({ error: 'User not found or no changes made' });
       return;
     }
 
@@ -74,7 +74,7 @@ const updateUserProfileHandler: RequestHandler = async (
 
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
-      res.status(409).json({ message: 'Username or email already taken.' });
+      res.status(409).json({ error: 'Username or email already taken.' });
       return;
     }
     next(error);

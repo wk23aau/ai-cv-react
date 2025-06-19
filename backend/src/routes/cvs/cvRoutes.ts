@@ -12,7 +12,7 @@ const createCvHandler = async (req: Request, res: Response, next: NextFunction) 
     const userId = req.user.userId; // Safe access
 
     if (!cv_data) {
-        res.status(400).json({ message: 'cv_data is required' });
+        res.status(400).json({ error: 'cv_data is required' });
         return;
     }
 
@@ -64,7 +64,7 @@ const getCvByIdHandler = async (req: Request, res: Response, next: NextFunction)
     try {
         const [cvs] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (cvs.length === 0) {
-            res.status(404).json({ message: 'CV not found or not authorized' });
+            res.status(404).json({ error: 'CV not found or not authorized' });
             return;
         }
         const cv = cvs[0];
@@ -86,13 +86,13 @@ const updateCvHandler = async (req: Request, res: Response, next: NextFunction) 
     const { cv_data, template_id, name } = req.body;
 
     if (cv_data === undefined && template_id === undefined && name === undefined) {
-        res.status(400).json({ message: 'No fields to update provided' });
+        res.status(400).json({ error: 'No fields to update provided' });
         return;
     }
     try {
         const [existingCvs] = await pool.query<any[]>('SELECT id FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (existingCvs.length === 0) {
-            res.status(404).json({ message: 'CV not found or not authorized for update' });
+            res.status(404).json({ error: 'CV not found or not authorized for update' });
             return;
         }
         let query = 'UPDATE cvs SET ';
@@ -136,7 +136,7 @@ const deleteCvHandler = async (req: Request, res: Response, next: NextFunction) 
     try {
         const [result] = await pool.query<any>('DELETE FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (result.affectedRows === 0) {
-            res.status(404).json({ message: 'CV not found or not authorized for deletion' });
+            res.status(404).json({ error: 'CV not found or not authorized for deletion' });
             return;
         }
         res.status(200).json({ message: 'CV deleted successfully' });
