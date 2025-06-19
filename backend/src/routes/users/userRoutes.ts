@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express'; // express import for Router already here
+import { Router, Request, Response, NextFunction } from 'express';
 import pool from '../../db';
 import { protect } from '../../middleware/authMiddleware';
 
@@ -8,17 +8,17 @@ const getUserProfileHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => { // Added Promise<void> return type
+): Promise<void> => {
   try {
-    if (!req.user) { // Check if req.user is populated by 'protect'
+    if (!req.user) {
       res.status(401).json({ error: 'Not authorized, user data not found' });
       return;
     }
-    // Access req.user.userId safely
+
     const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user.userId]);
 
     if (users.length === 0) {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ message: 'User not found' }); // Consider { error: 'message' }
       return;
     }
     res.json(users[0]);
@@ -31,18 +31,18 @@ const updateUserProfileHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => { // Added Promise<void> return type
+): Promise<void> => {
   try {
-    if (!req.user) { // Check if req.user is populated
+    if (!req.user) {
       res.status(401).json({ error: 'Not authorized, user data not found' });
       return;
     }
 
     const { username, email } = req.body;
-    const userId = req.user.userId; // Access userId safely
+    const userId = req.user.userId;
 
     if (!username && !email) {
-      res.status(400).json({ message: 'No fields to update' });
+      res.status(400).json({ message: 'No fields to update' }); // Consider { error: 'message' }
       return;
     }
 
@@ -65,7 +65,7 @@ const updateUserProfileHandler = async (
     const [result] = await pool.query<any>(query, params);
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ message: 'User not found or no changes made' });
+      res.status(404).json({ message: 'User not found or no changes made' }); // Consider { error: 'message' }
       return;
     }
 
@@ -74,14 +74,13 @@ const updateUserProfileHandler = async (
 
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
-      res.status(409).json({ message: 'Username or email already taken.' }); // Consider changing to { error: 'message' } for consistency
+      res.status(409).json({ message: 'Username or email already taken.' }); // Consider { error: 'message' }
       return;
     }
     next(error);
   }
 };
 
-// Routes - 'as express.RequestHandler' casts were already removed
 router.get('/me', protect, getUserProfileHandler);
 router.put('/me', protect, updateUserProfileHandler);
 
