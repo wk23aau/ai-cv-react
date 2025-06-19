@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
-import { protect, admin } from '../../middleware/authMiddleware'; // Removed AuthRequest import
+import { protect, admin } from '../../middleware/authMiddleware';
 
 const router = express.Router();
 
@@ -28,16 +28,15 @@ async function writeGaConfig(config: GaConfig): Promise<void> {
   await fs.writeFile(GA_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
 }
 
-// Changed req type from AuthRequest to Request, removed 'as express.RequestHandler' casts
 router.post('/ga', protect, admin, async (req: Request, res: Response, next: NextFunction) => {
   const { measurementId, propertyId } = req.body;
 
   if (typeof measurementId !== 'string' || typeof propertyId !== 'string') {
-    res.status(400).json({ message: 'Measurement ID and Property ID must be strings.' });
+    res.status(400).json({ message: 'Measurement ID and Property ID must be strings.' }); // Consider { error: 'message' }
     return;
   }
   if (!measurementId.trim() || !propertyId.trim()) {
-    res.status(400).json({ message: 'Measurement ID and Property ID cannot be empty.' });
+    res.status(400).json({ message: 'Measurement ID and Property ID cannot be empty.' }); // Consider { error: 'message' }
     return;
   }
 
@@ -53,7 +52,6 @@ router.post('/ga', protect, admin, async (req: Request, res: Response, next: Nex
   }
 });
 
-// Changed req type from AuthRequest to Request, removed 'as express.RequestHandler' casts
 router.get('/ga', protect, admin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const config = await readGaConfig();

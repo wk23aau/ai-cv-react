@@ -1,6 +1,6 @@
-import express, { Request, Response, NextFunction } from 'express'; // Ensured Request is imported
+import express, { Request, Response, NextFunction } from 'express';
 import pool from '../../db';
-import { protect, admin } from '../../middleware/authMiddleware'; // Removed AuthRequest import
+import { protect, admin } from '../../middleware/authMiddleware';
 import { RowDataPacket } from 'mysql2/promise';
 
 const router = express.Router();
@@ -10,19 +10,20 @@ interface UserDbRow {
   is_active: boolean;
 }
 
-// Changed req type from AuthRequest to Request, removed 'as express.RequestHandler' cast
 router.put('/:userId/toggle-active', protect, admin, async (req: Request, res: Response, next: NextFunction) => {
-  const { userId } = req.params;
+  const { userId: targetUserIdString } = req.params; // Renamed to avoid conflict with potential req.user.userId
 
-  if (!userId || isNaN(parseInt(userId))) {
-    res.status(400).json({ message: 'Valid User ID is required.' });
+  if (!targetUserIdString || isNaN(parseInt(targetUserIdString))) {
+    res.status(400).json({ message: 'Valid User ID is required.' }); // Consider { error: 'message' }
     return;
   }
-  const targetUserId = parseInt(userId);
+  const targetUserId = parseInt(targetUserIdString);
 
-  // Example of using req.user which is now available via augmentation.
-  // This check is commented out as per original logic, but demonstrates req.user access.
-  // if (req.user && req.user.userId === targetUserId) {
+  // Example of using req.user (if needed for logic like preventing self-deactivation):
+  // if (!req.user) { // This check would be needed if using req.user.userId
+  //    return res.status(401).json({ error: 'Not authorized, user data not found' });
+  // }
+  // if (req.user.userId === targetUserId) {
   //   res.status(400).json({ message: 'Admin users cannot deactivate their own account.' });
   //   return;
   // }
@@ -33,7 +34,7 @@ router.put('/:userId/toggle-active', protect, admin, async (req: Request, res: R
     const [rows] = await connection.query<RowDataPacket[]>('SELECT id, is_active FROM users WHERE id = ?', [targetUserId]);
 
     if (rows.length === 0) {
-      res.status(404).json({ message: 'User not found.' });
+      res.status(404).json({ message: 'User not found.' }); // Consider { error: 'message' }
       return;
     }
 
@@ -47,7 +48,9 @@ router.put('/:userId/toggle-active', protect, admin, async (req: Request, res: R
     );
 
     if (updateResult.affectedRows === 0) {
-      res.status(500).json({ message: 'Failed to update user status, user may have been deleted.' });
+      // This could also mean the status was already what we tried to set it to,
+      // or user just got deleted. For simplicity, treating as an issue.
+      res.status(500).json({ message: 'Failed to update user status, user may have been deleted or status unchanged.' }); // Consider { error: 'message' }
       return;
     }
 

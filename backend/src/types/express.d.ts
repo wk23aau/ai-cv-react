@@ -1,15 +1,17 @@
 // backend/src/types/express.d.ts
 
-// To ensure this file is treated as a module and its declarations are merged correctly.
+// This line ensures the file is treated as a module.
+// It's important if your tsconfig.json has "isolatedModules": true,
+// or generally to ensure correct module augmentation behavior.
 export {};
 
 declare global {
   namespace Express {
     export interface Request {
-      user?: { // The user property is optional, as it's only present after 'protect' middleware
+      user?: { // The user property is optional on Express.Request
         userId: number;
         username: string;
-        isAdmin?: boolean; // isAdmin is also optional within the user object
+        isAdmin?: boolean; // isAdmin itself is optional within the user object
       };
     }
   }

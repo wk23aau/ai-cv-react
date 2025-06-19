@@ -1,7 +1,7 @@
-import express, { Router, Request, Response, NextFunction } from 'express'; // Added Request
-import crypto from 'crypto'; // For generating UUIDs
+import express, { Router, Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { protect } from '../../middleware/authMiddleware'; // Removed AuthRequest import
+import { protect } from '../../middleware/authMiddleware';
 import {
     GenerateAIContentRequest,
     SectionContentType,
@@ -31,7 +31,6 @@ if (GEMINI_API_KEY) {
 
 const router: Router = express.Router();
 
-// Interface for TailoredCVUpdate directly here for simplicity
 interface TailoredCVUpdate {
   updatedSummary: string;
   updatedSkills: SkillEntry[];
@@ -39,9 +38,10 @@ interface TailoredCVUpdate {
   suggestedNewExperienceEntries?: Array<Omit<ExperienceEntry, 'id'>>;
 }
 
-// Changed req type from AuthRequest to Request, removed 'as express.RequestHandler' cast from the internal signature
-// The outer cast remains if needed, but the handler signature is now standard.
-router.post('/generate', protect, (async (req: Request, res: Response, next: NextFunction) => {
+router.post('/generate', protect, async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { // Added check
+        return res.status(401).json({ error: 'Not authorized, user data not found in AI route' });
+    }
     if (!ai) {
         res.status(503).json({ message: "AI Service is not configured or API key is missing." });
         return;
@@ -49,8 +49,7 @@ router.post('/generate', protect, (async (req: Request, res: Response, next: Nex
 
     const { sectionType, userInput, context }: GenerateAIContentRequest = req.body;
 
-    // req.user is now available due to module augmentation
-    console.log(`[AI Route /generate] Received request from user: ${req.user?.userId}`);
+    console.log(`[AI Route /generate] Received request from user: ${req.user.userId}`); // Safe access
     console.log(`  Section Type: ${sectionType}`);
     console.log(`  User Input length: ${userInput?.length || 0}`);
 
@@ -218,7 +217,6 @@ Focus on making the CV highly competitive for the specific Job Description.
             isJsonResponseType = true;
             break;
         default:
-            // const exhaustiveCheck: never = sectionType; // This would cause error if all cases not handled
             console.error(`Unsupported section type for generation: ${sectionType}`);
             res.status(400).json({ message: `Unsupported section type: ${sectionType}` });
             return;
@@ -331,6 +329,6 @@ Focus on making the CV highly competitive for the specific Job Description.
         next(new Error(`Failed to generate AI content: ${message}`));
         return;
     }
-}) as express.RequestHandler); // Cast the entire inline handler
+}) /* Removed cast here as per general instruction */);
 
 export default router;

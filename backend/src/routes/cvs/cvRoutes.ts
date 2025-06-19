@@ -1,13 +1,15 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import pool from '../../db';
-import { protect } from '../../middleware/authMiddleware'; // Removed AuthRequest import
+import { protect } from '../../middleware/authMiddleware';
 
 const router = Router();
 
-// Changed req type from AuthRequest to Request
 const createCvHandler = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { // Added check
+        return res.status(401).json({ error: 'Not authorized' });
+    }
     const { cv_data, template_id, name } = req.body;
-    const userId = req.user?.userId; // Direct use of req.user (from augmented Request)
+    const userId = req.user.userId; // Safe access
 
     if (!cv_data) {
         res.status(400).json({ message: 'cv_data is required' });
@@ -40,9 +42,11 @@ const createCvHandler = async (req: Request, res: Response, next: NextFunction) 
     }
 };
 
-// Changed req type from AuthRequest to Request
 const getAllCvsHandler = async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user?.userId;
+    if (!req.user) { // Added check
+        return res.status(401).json({ error: 'Not authorized' });
+    }
+    const userId = req.user.userId; // Safe access
     try {
         const [cvs] = await pool.query<any[]>('SELECT id, user_id, template_id, name, created_at, updated_at FROM cvs WHERE user_id = ? ORDER BY updated_at DESC', [userId]);
         res.json(cvs);
@@ -51,10 +55,12 @@ const getAllCvsHandler = async (req: Request, res: Response, next: NextFunction)
     }
 };
 
-// Changed req type from AuthRequest to Request
 const getCvByIdHandler = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { // Added check
+        return res.status(401).json({ error: 'Not authorized' });
+    }
     const cvId = req.params.id;
-    const userId = req.user?.userId;
+    const userId = req.user.userId; // Safe access
     try {
         const [cvs] = await pool.query<any[]>('SELECT * FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (cvs.length === 0) {
@@ -71,10 +77,12 @@ const getCvByIdHandler = async (req: Request, res: Response, next: NextFunction)
     }
 };
 
-// Changed req type from AuthRequest to Request
 const updateCvHandler = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { // Added check
+        return res.status(401).json({ error: 'Not authorized' });
+    }
     const cvId = req.params.id;
-    const userId = req.user?.userId;
+    const userId = req.user.userId; // Safe access
     const { cv_data, template_id, name } = req.body;
 
     if (cv_data === undefined && template_id === undefined && name === undefined) {
@@ -119,10 +127,12 @@ const updateCvHandler = async (req: Request, res: Response, next: NextFunction) 
     }
 };
 
-// Changed req type from AuthRequest to Request
 const deleteCvHandler = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { // Added check
+        return res.status(401).json({ error: 'Not authorized' });
+    }
     const cvId = req.params.id;
-    const userId = req.user?.userId;
+    const userId = req.user.userId; // Safe access
     try {
         const [result] = await pool.query<any>('DELETE FROM cvs WHERE id = ? AND user_id = ?', [cvId, userId]);
         if (result.affectedRows === 0) {
@@ -135,7 +145,6 @@ const deleteCvHandler = async (req: Request, res: Response, next: NextFunction) 
     }
 };
 
-// Removed 'as express.RequestHandler' casts
 router.post('/', protect, createCvHandler);
 router.get('/', protect, getAllCvsHandler);
 router.get('/:id', protect, getCvByIdHandler);

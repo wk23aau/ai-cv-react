@@ -1,8 +1,8 @@
-import express, { Request, Response } from 'express'; // Added Request
+import express, { Request, Response } from 'express';
 import { BetaAnalyticsDataClient, protos } from '@google-analytics/data';
 import fs from 'fs/promises';
 import path from 'path';
-import { protect, admin } from '../../middleware/authMiddleware'; // Removed AuthRequest import
+import { protect, admin } from '../../middleware/authMiddleware';
 
 const router = express.Router();
 
@@ -15,7 +15,6 @@ interface GaConfigFile {
 
 const analyticsDataClient = new BetaAnalyticsDataClient();
 
-// Changed req type from AuthRequest to Request, removed 'as express.RequestHandler' cast
 router.get('/overview', protect, admin, async (req: Request, res: Response) => {
   let finalPropertyId = '';
   let propertyIdSource = '';
@@ -113,7 +112,7 @@ router.get('/overview', protect, admin, async (req: Request, res: Response) => {
     }
 
     res.status(500).json({
-        message: errorMessage,
+        message: errorMessage, // Consider changing to { error: errorMessage } for consistency
     });
     return;
   }
