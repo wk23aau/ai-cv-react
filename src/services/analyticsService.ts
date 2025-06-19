@@ -1,50 +1,51 @@
-// Ambient declaration for gtag if not using a library like @types/gtag.js
-declare global {
-  interface Window {
-    gtag?: (command: string, action: string, params?: GtagEventParams) => void;
+// Placeholder for Google Analytics Tracking ID
+const GA_TRACKING_ID = 'G-PLACEHOLDER';
+
+// Initialize Google Analytics (if it's not already initialized)
+// This is a simplified example. In a real app, you'd use a library like react-ga.
+const initializeGA = () => {
+  // @ts-ignore
+  if (!window.gtag) {
+    console.log(`Initializing GA with ID: ${GA_TRACKING_ID}`);
+    // In a real scenario, you would add the GA script to the HTML or use a GA library.
+    // For now, we'll just simulate the gtag function.
+    // @ts-ignore
+    window.gtag = (...args: any[]) => {
+      console.log('gtag:', ...args);
+    };
   }
-}
+};
 
-export interface GtagEventParams {
-  event_category?: string;
-  event_label?: string;
-  value?: number;
-  [key: string]: any; // Allow other custom parameters
-}
-
-const GA_TRACKING_ID = "G-XXXXXXXXXX"; // Replace with your actual Measurement ID
+initializeGA();
 
 /**
- * Sends a page view event to Google Analytics.
- * Should be called on initial load and on route changes.
- * @param path - The path of the page being viewed (e.g., window.location.pathname).
+ * Tracks a page view.
+ * @param path - The path of the page to track.
  */
-export const trackPageView = (path: string): void => {
-  if (typeof window.gtag === 'function') {
-    window.gtag('config', GA_TRACKING_ID, {
-      page_path: path,
-    });
-    console.log(`GA PageView: ${path}`);
-  } else {
-    // console.warn('gtag not available for page view tracking.');
-  }
+export const trackPageView = (path: string) => {
+  console.log(`Tracking page view for: ${path}`);
+  // @ts-ignore
+  window.gtag('config', GA_TRACKING_ID, {
+    page_path: path,
+  });
 };
 
 /**
- * Sends an event to Google Analytics.
- * @param action - The action of the event (e.g., 'click', 'cv_generated').
- * @param params - Optional parameters for the event, including category, label, value.
+ * Tracks an event.
+ * @param category - The category of the event.
+ * @param action - The action of the event.
+ * @param label - (Optional) The label of the event.
+ * @param value - (Optional) The value of the event.
  */
-export const trackEvent = (action: string, params?: GtagEventParams): void => {
-  if (typeof window.gtag === 'function') {
-    window.gtag('event', action, params);
-    console.log(`GA Event: ${action}`, params || '');
-  } else {
-    // console.warn(`gtag not available for event: ${action}`);
-  }
+export const trackEvent = (category: string, action: string, label?: string, value?: number) => {
+  console.log(`Tracking event: Category=${category}, Action=${action}, Label=${label}, Value=${value}`);
+  // @ts-ignore
+  window.gtag('event', action, {
+    event_category: category,
+    event_label: label,
+    value: value,
+  });
 };
 
-export default {
-  trackPageView,
-  trackEvent,
-};
+// Example of how to export the tracking ID if needed elsewhere (though not typical for gtag.js)
+export { GA_TRACKING_ID };
