@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect } from 'react'; // Added useEffect
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from 'react-router-dom'; // Added useLocation
 import MainHeader from './components/layout/MainHeader';
 import MainFooter from './components/layout/MainFooter';
+import AdminLayout from './components/layout/AdminLayout';
 import LoadingSpinner from './components/shared/LoadingSpinner'; // Assuming this exists
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
@@ -59,8 +60,12 @@ const App: React.FC = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
         </Route>
-        <Route element={<AdminProtectedRoute />}>
-          <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route element={<AdminProtectedRoute />}> {/* Protects all nested routes */}
+          <Route path="/admin" element={<AdminLayout />}> {/* AdminLayout provides structure for /admin/* */}
+            <Route path="dashboard" element={<AdminDashboardPage />} />
+            {/* Example for a future settings page, can be commented out or added if a placeholder is desired */}
+            {/* <Route path="settings" element={<div>Admin Settings Placeholder Page</div>} /> */}
+          </Route>
         </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>
