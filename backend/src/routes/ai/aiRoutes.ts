@@ -45,7 +45,8 @@ interface TailoredCVUpdate {
 // POST /api/ai/generate
 router.post('/generate', protect, async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!ai) {
-        return res.status(503).json({ message: "AI Service is not configured or API key is missing." });
+        res.status(503).json({ message: "AI Service is not configured or API key is missing." });
+        return;
     }
 
     const { sectionType, userInput, context }: GenerateAIContentRequest = req.body;
@@ -56,7 +57,8 @@ router.post('/generate', protect, async (req: AuthRequest, res: Response, next: 
     // console.log(`  Context: ${JSON.stringify(context, null, 2)}`); // Can be verbose
 
     if (!sectionType || userInput === undefined) { // userInput can be an empty string
-        return res.status(400).json({ message: 'sectionType and userInput are required fields.' });
+        res.status(400).json({ message: 'sectionType and userInput are required fields.' });
+        return;
     }
 
     let prompt = "";
@@ -220,7 +222,8 @@ Focus on making the CV highly competitive for the specific Job Description.
         default:
             const exhaustiveCheck: never = sectionType;
             console.error(`Unsupported section type for generation: ${exhaustiveCheck}`);
-            return res.status(400).json({ message: `Unsupported section type: ${exhaustiveCheck}` });
+            res.status(400).json({ message: `Unsupported section type: ${exhaustiveCheck}` });
+            return;
     }
 
     try {
@@ -236,8 +239,8 @@ Focus on making the CV highly competitive for the specific Job Description.
                 : { }
         });
 
-        // Safely access and trim text, defaulting to empty string if text() is undefined or returns undefined/null
-        let textOutput = response.text ? (response.text() || "").trim() : "";
+        // Safely access and trim text, defaulting to empty string if response.text is undefined
+        let textOutput = response.text ? response.text.trim() : "";
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
         const match = textOutput.match(fenceRegex);
         if (match && match[2]) {
@@ -251,7 +254,7 @@ Focus on making the CV highly competitive for the specific Job Description.
                 processedResponse = JSON.parse(textOutput);
             } catch (e) {
                 console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                if (textOutput.includes(',')) processedResponse = textOutput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                if (textOutput.includes(',')) processedResponse = textOutput.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
                 else processedResponse = textOutput ? [textOutput] : [];
             }
         } else if (sectionType === "new_experience_entry") {
