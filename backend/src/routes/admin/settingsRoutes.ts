@@ -41,11 +41,13 @@ router.post('/ga', protect, admin, async (req: AuthRequest, res: Response, next:
   const { measurementId, propertyId } = req.body;
 
   if (typeof measurementId !== 'string' || typeof propertyId !== 'string') {
-    return res.status(400).json({ message: 'Measurement ID and Property ID must be strings.' });
+    res.status(400).json({ message: 'Measurement ID and Property ID must be strings.' });
+    return; // Added return
   }
   // Basic validation, can be enhanced (e.g., regex for G-XXXX format)
   if (!measurementId.trim() || !propertyId.trim()) {
-    return res.status(400).json({ message: 'Measurement ID and Property ID cannot be empty.' });
+    res.status(400).json({ message: 'Measurement ID and Property ID cannot be empty.' });
+    return; // Added return
   }
 
   try {

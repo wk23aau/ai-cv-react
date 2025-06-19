@@ -1,8 +1,8 @@
-import express from 'express';
+import express, { Response } from 'express'; // NextFunction can be omitted if not used
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
 import fs from 'fs/promises'; // Added for file system operations
 import path from 'path'; // Added for path manipulation
-import { protect, admin } from '../../middleware/authMiddleware';
+import { protect, admin, AuthRequest } from '../../middleware/authMiddleware'; // Added AuthRequest
 import { GA_PROPERTY_ID as ENV_GA_PROPERTY_ID } from '../../config'; // Renamed for clarity
 
 const router = express.Router();
@@ -27,7 +27,7 @@ const analyticsDataClient = new BetaAnalyticsDataClient();
 // Fetches real analytics data from Google Analytics Data API.
 // NOTE: Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set for authentication.
 //       The GA Property ID will be sourced from ga_config.json first, then fall back to environment variable.
-router.get('/overview', protect, admin, async (req, res) => {
+router.get('/overview', protect, admin, async (req: AuthRequest, res: Response) => {
   let finalPropertyId = '';
   let propertyIdSource = '';
 
@@ -60,9 +60,10 @@ router.get('/overview', protect, admin, async (req, res) => {
   // 3. Validate finalPropertyId before making API call
   if (!finalPropertyId || finalPropertyId === 'YOUR_GA_PROPERTY_ID') {
     console.error('GA Property ID is not configured (checked file and environment).');
-    return res.status(500).json({
+    res.status(500).json({
       message: 'Google Analytics Property ID is not configured on the server. Please set it in Admin > GA Configuration or via the GA_PROPERTY_ID environment variable.'
     });
+    return; // Added return
   }
 
   try {
@@ -133,6 +134,7 @@ router.get('/overview', protect, admin, async (req, res) => {
     res.status(500).json({
         message: errorMessage,
     });
+    return; // Added return for consistency
   }
 });
 
