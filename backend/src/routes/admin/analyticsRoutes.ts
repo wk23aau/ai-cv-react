@@ -1,9 +1,22 @@
 import express from 'express';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
+import fs from 'fs/promises'; // Added for file system operations
+import path from 'path'; // Added for path manipulation
 import { protect, admin } from '../../middleware/authMiddleware';
-import { GA_PROPERTY_ID } from '../../config'; // Import GA_PROPERTY_ID
+import { GA_PROPERTY_ID as ENV_GA_PROPERTY_ID } from '../../config'; // Renamed for clarity
 
 const router = express.Router();
+
+// Define the path to the GA configuration file, similar to settingsRoutes.ts
+// Assuming this route file is in backend/src/routes/admin/,
+// then __dirname is backend/src/routes/admin.
+// So, ../../../ga_config.json would point to backend/ga_config.json
+const GA_CONFIG_PATH = path.join(__dirname, '../../../ga_config.json');
+
+interface GaConfigFile {
+  measurementId?: string;
+  propertyId?: string;
+}
 
 // Initialize Google Analytics Data API client
 // The client will automatically use credentials from GOOGLE_APPLICATION_CREDENTIALS environment variable.
@@ -13,18 +26,48 @@ const analyticsDataClient = new BetaAnalyticsDataClient();
 // Protected: Admin only
 // Fetches real analytics data from Google Analytics Data API.
 // NOTE: Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set for authentication.
-//       And GA_PROPERTY_ID is correctly configured in .env or config.ts.
+//       The GA Property ID will be sourced from ga_config.json first, then fallback to environment variable.
 router.get('/overview', protect, admin, async (req, res) => {
-  if (!GA_PROPERTY_ID || GA_PROPERTY_ID === 'YOUR_GA_PROPERTY_ID') {
-    console.error('GA_PROPERTY_ID is not configured.');
+  let finalPropertyId = '';
+  let propertyIdSource = '';
+
+  // 1. Try to read from ga_config.json
+  try {
+    const data = await fs.readFile(GA_CONFIG_PATH, 'utf-8');
+    const configFromFile = JSON.parse(data) as GaConfigFile;
+    if (configFromFile.propertyId && configFromFile.propertyId.trim() !== '') {
+      finalPropertyId = configFromFile.propertyId.trim();
+      propertyIdSource = 'ga_config.json';
+      console.log('Using GA Property ID from ga_config.json:', finalPropertyId);
+    }
+  } catch (error: any) {
+    // Log errors other than file not found, but don't fail the request, fallback instead.
+    if (error.code !== 'ENOENT') {
+      console.error('Error reading ga_config.json:', error.message);
+    }
+    // If ENOENT or other read error, proceed to fallback.
+  }
+
+  // 2. Fallback to environment variable if not found in file
+  if (!finalPropertyId) {
+    if (ENV_GA_PROPERTY_ID && ENV_GA_PROPERTY_ID !== 'YOUR_GA_PROPERTY_ID') {
+      finalPropertyId = ENV_GA_PROPERTY_ID;
+      propertyIdSource = 'environment variable';
+      console.log('Using GA Property ID from environment variable:', finalPropertyId);
+    }
+  }
+
+  // 3. Validate finalPropertyId before making API call
+  if (!finalPropertyId || finalPropertyId === 'YOUR_GA_PROPERTY_ID') {
+    console.error('GA Property ID is not configured (checked file and environment).');
     return res.status(500).json({
-      message: 'Google Analytics Property ID is not configured on the server. Please set GA_PROPERTY_ID.'
+      message: 'Google Analytics Property ID is not configured on the server. Please set it in Admin > GA Configuration or via the GA_PROPERTY_ID environment variable.'
     });
   }
 
   try {
     const [response] = await analyticsDataClient.runReport({
-      property: `properties/${GA_PROPERTY_ID}`,
+      property: `properties/${finalPropertyId}`, // Use the determined property ID
       dateRanges: [
         {
           startDate: '7daysAgo',
@@ -79,14 +122,14 @@ router.get('/overview', protect, admin, async (req, res) => {
     res.json(formattedData);
 
   } catch (error: any) {
-    console.error('Error fetching Google Analytics data:', error.message);
+    console.error(`Error fetching Google Analytics data using Property ID from ${propertyIdSource} (${finalPropertyId}):`, error.message);
     // Check for specific error details if available
     let errorMessage = 'Failed to fetch analytics data from Google.';
     if (error.details) {
       errorMessage += ` Details: ${error.details}`;
     }
-     // Provide more specific error message if GA_PROPERTY_ID is the default placeholder
-    if (GA_PROPERTY_ID === 'YOUR_GA_PROPERTY_ID' && error.message.includes('Property ID')) {
+    // Customize error message based on the source of Property ID if it was default/placeholder
+    if (finalPropertyId === 'YOUR_GA_PROPERTY_ID' && error.message.includes('Property ID')) {
         errorMessage = 'Failed to fetch analytics data: Invalid GA_PROPERTY_ID. Please ensure it is correctly configured.';
     } else if (error.message.includes('quota')) {
         errorMessage = 'Failed to fetch analytics data: Google Analytics API quota exceeded.';

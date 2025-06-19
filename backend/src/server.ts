@@ -8,6 +8,7 @@ import cvTemplateRoutes from './routes/cvs/cvTemplateRoutes';
 import aiRoutes from './routes/ai/aiRoutes'; // Import AI routes
 import adminAnalyticsRoutes from './routes/admin/analyticsRoutes'; // Import Admin Analytics routes
 import adminUserManagementRoutes from './routes/admin/userManagementRoutes'; // Import Admin User Management routes
+import adminSettingsRoutes from './routes/admin/settingsRoutes'; // Import Admin Settings routes
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use('/api/cv-templates', cvTemplateRoutes);
 app.use('/api/ai', aiRoutes); // Mount AI routes
 app.use('/api/admin/analytics', adminAnalyticsRoutes); // Mount Admin Analytics routes
 app.use('/api/admin/users', adminUserManagementRoutes); // Mount Admin User Management routes for admin actions on users
+app.use('/api/admin/settings', adminSettingsRoutes); // Mount Admin Settings routes
 
 app.get('/', (req, res) => {
   res.send('Hello from CV Builder Backend!');

@@ -37,6 +37,8 @@ const AdminDashboardPage: React.FC = () => {
   // State for conceptual GA Config inputs
   const [gaMeasurementId, setGaMeasurementId] = useState('');
   const [gaPropertyIdInput, setGaPropertyIdInput] = useState('');
+  const [isGASettingsLoading, setIsGASettingsLoading] = useState(false); // For fetching
+  const [gaSettingsError, setGaSettingsError] = useState<string | null>(null); // For fetching
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -96,10 +98,39 @@ const AdminDashboardPage: React.FC = () => {
     }
   }, []);
 
+  const fetchGASettings = useCallback(async () => {
+    setIsGASettingsLoading(true);
+    setGaSettingsError(null);
+    const token = getAuthToken();
+    if (!token) {
+      setGaSettingsError("Authentication required to fetch GA settings.");
+      setIsGASettingsLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/settings/ga', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch GA settings');
+      }
+      const settings = await response.json();
+      setGaMeasurementId(settings.measurementId || '');
+      setGaPropertyIdInput(settings.propertyId || '');
+    } catch (err) {
+      console.error("Error fetching GA settings:", err);
+      setGaSettingsError(err instanceof Error ? err.message : 'Could not fetch GA settings');
+    } finally {
+      setIsGASettingsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchAllUsers();
     fetchAnalyticsData();
-  }, [fetchAllUsers, fetchAnalyticsData]);
+    fetchGASettings(); // Fetch GA settings on mount
+  }, [fetchAllUsers, fetchAnalyticsData, fetchGASettings]);
 
   const handleToggleAdminStatus = async (userId: string | number, currentIsAdmin: boolean) => {
     trackEvent('Admin', 'admin_toggle_admin_status_click', `User ID: ${userId} - Current Admin: ${currentIsAdmin}`); // Added event tracking
@@ -165,10 +196,52 @@ const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  const handleSaveGASettings = () => {
-    trackEvent('Admin', 'admin_save_ga_settings_click_conceptual', `MeasurementID: ${gaMeasurementId}, PropertyID: ${gaPropertyIdInput}`);
-    alert(`Placeholder: Save GA settings clicked. Measurement ID: ${gaMeasurementId}, Property ID: ${gaPropertyIdInput}. API call not implemented.`);
-    // In a real scenario, you would make an API call here to save these settings.
+  const handleSaveGASettings = async () => {
+    trackEvent('Admin', 'admin_save_ga_settings_click', `MeasurementID: ${gaMeasurementId}, PropertyID: ${gaPropertyIdInput}`);
+
+    const token = getAuthToken();
+    if (!token) {
+      alert("Authentication required to save GA settings.");
+      return;
+    }
+
+    // Basic validation (can be more sophisticated)
+    if (!gaMeasurementId.trim() || !gaPropertyIdInput.trim()) {
+      alert("Both Measurement ID and Property ID are required.");
+      return;
+    }
+    if (!gaMeasurementId.startsWith('G-')) {
+        alert("Measurement ID should typically start with 'G-'.");
+        // return; // Optional: enforce format strictly
+    }
+
+    try {
+      const response = await fetch('/api/admin/settings/ga', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          measurementId: gaMeasurementId,
+          propertyId: gaPropertyIdInput,
+        }),
+      });
+
+      const result = await response.json(); // Attempt to parse JSON regardless of response.ok for error messages
+
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to save GA settings. Status: ${response.status}`);
+      }
+
+      alert(result.message || "Google Analytics settings saved successfully!");
+      // Optionally, you might want to re-fetch settings here if backend modifies them upon save,
+      // but for simple storage, it's not strictly necessary.
+
+    } catch (error) {
+      console.error('Error saving GA settings:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Could not save GA settings.'}`);
+    }
   };
 
   // Main loading state can check both, or handle them separately in JSX
@@ -219,44 +292,50 @@ const AdminDashboardPage: React.FC = () => {
         )}
       </section>
 
-      {/* GA Configuration Section (Conceptual) */}
+      {/* GA Configuration Section */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-slate-700 mb-6">Google Analytics Configuration (Conceptual)</h2>
+        <h2 className="text-2xl font-semibold text-slate-700 mb-6">Google Analytics Configuration</h2>
         <div className="bg-white p-6 rounded-lg shadow-md space-y-4">
-          <div>
-            <label htmlFor="gaMeasurementId" className="block text-sm font-medium text-slate-700">
+          {isGASettingsLoading && <p className="text-slate-500">Loading GA settings...</p>}
+          {gaSettingsError && <p className="text-red-500">Error loading GA settings: {gaSettingsError}</p>}
+          {!isGASettingsLoading && !gaSettingsError && (
+            <>
+              <div>
+                <label htmlFor="gaMeasurementId" className="block text-sm font-medium text-slate-700">
               Google Analytics Measurement ID (G-XXXX)
             </label>
-            <input
-              type="text"
-              id="gaMeasurementId"
-              name="gaMeasurementId"
-              value={gaMeasurementId}
-              onChange={(e) => setGaMeasurementId(e.target.value)}
-              placeholder="G-XXXXXXXXXX"
-              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="gaPropertyIdInput" className="block text-sm font-medium text-slate-700">
-              Google Analytics Property ID
-            </label>
-            <input
-              type="text"
-              id="gaPropertyIdInput"
-              name="gaPropertyIdInput"
-              value={gaPropertyIdInput}
-              onChange={(e) => setGaPropertyIdInput(e.target.value)}
-              placeholder="123456789"
-              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <button
-            onClick={handleSaveGASettings}
-            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            Save Settings (Placeholder)
-          </button>
+                <input
+                  type="text"
+                  id="gaMeasurementId"
+                  name="gaMeasurementId"
+                  value={gaMeasurementId}
+                  onChange={(e) => setGaMeasurementId(e.target.value)}
+                  placeholder="G-XXXXXXXXXX"
+                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="gaPropertyIdInput" className="block text-sm font-medium text-slate-700">
+                  Google Analytics Property ID
+                </label>
+                <input
+                  type="text"
+                  id="gaPropertyIdInput"
+                  name="gaPropertyIdInput"
+                  value={gaPropertyIdInput}
+                  onChange={(e) => setGaPropertyIdInput(e.target.value)}
+                  placeholder="123456789"
+                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
+              <button
+                onClick={handleSaveGASettings}
+                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Save Settings
+              </button>
+            </>
+          )}
         </div>
       </section>
 
