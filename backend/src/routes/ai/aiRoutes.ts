@@ -236,7 +236,8 @@ Focus on making the CV highly competitive for the specific Job Description.
                 : { }
         });
 
-        let textOutput = response.text.trim();
+        // Safely access and trim text, defaulting to empty string if text() is undefined or returns undefined/null
+        let textOutput = response.text ? (response.text() || "").trim() : "";
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
         const match = textOutput.match(fenceRegex);
         if (match && match[2]) {
@@ -259,7 +260,8 @@ Focus on making the CV highly competitive for the specific Job Description.
                 processedResponse = { ...parsedEntry, id: crypto.randomUUID() };
             } catch (e) {
                 console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                return next(new Error(`Gemini returned an invalid format for new experience entry. Raw: ${textOutput.substring(0, 200)}`));
+                next(new Error(`Gemini returned an invalid format for new experience entry. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else if (sectionType === "new_education_entry") {
             try {
@@ -267,35 +269,45 @@ Focus on making the CV highly competitive for the specific Job Description.
                 processedResponse = { ...parsedEntry, id: crypto.randomUUID() };
             } catch (e) {
                 console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                return next(new Error(`Gemini returned an invalid format for new education entry. Raw: ${textOutput.substring(0, 200)}`));
+                next(new Error(`Gemini returned an invalid format for new education entry. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else if (sectionType === "initial_cv_from_title" || sectionType === "initial_cv_from_job_description") {
             try {
                 let parsedCVData: CVData = JSON.parse(textOutput);
+                const geminiPersonalInfo = parsedCVData.personalInfo || {} as Partial<PersonalInfo>;
                 const extractedTitle = sectionType === "initial_cv_from_job_description"
-                                       ? (parsedCVData.personalInfo?.title || "Job Title (from JD)")
-                                       : userInput;
+                                       ? (geminiPersonalInfo.title || "Job Title (from JD)") // Prioritize Gemini's title from JD if available
+                                       : userInput; // For "initial_cv_from_title", userInput is the title
 
-                const defaultPersonalInfo: PersonalInfo = {
-                    name: "Your Name (Update Me!)",
-                    title: extractedTitle,
-                    phone: "", email: "", linkedin: "", github: "", portfolio: "", address: "",
-                    portraitUrl: "",
-                    showPortrait: false, showPhone: true, showEmail: true,
-                    showLinkedin: true, showGithub: true, showPortfolio: true, showAddress: false,
-                    // Ensure all fields from parsedCVData.personalInfo are included or defaulted
-                    ...parsedCVData.personalInfo, // Spread Gemini's version first
-                    title: parsedCVData.personalInfo?.title || extractedTitle, // Ensure title is not overridden by spread if empty
+                parsedCVData.personalInfo = {
+                    name: "Your Name (Update Me!)", // Always use placeholder
+                    title: geminiPersonalInfo.title || extractedTitle, // Prioritize Gemini's title, then extracted, then userInput for title case
+                    phone: geminiPersonalInfo.phone || "",
+                    email: geminiPersonalInfo.email || "",
+                    linkedin: geminiPersonalInfo.linkedin || "",
+                    github: geminiPersonalInfo.github || "",
+                    portfolio: geminiPersonalInfo.portfolio || "",
+                    address: geminiPersonalInfo.address || "",
+                    portraitUrl: geminiPersonalInfo.portraitUrl || "",
+                    showPortrait: typeof geminiPersonalInfo.showPortrait === 'boolean' ? geminiPersonalInfo.showPortrait : false,
+                    showPhone: typeof geminiPersonalInfo.showPhone === 'boolean' ? geminiPersonalInfo.showPhone : true,
+                    showEmail: typeof geminiPersonalInfo.showEmail === 'boolean' ? geminiPersonalInfo.showEmail : true,
+                    showLinkedin: typeof geminiPersonalInfo.showLinkedin === 'boolean' ? geminiPersonalInfo.showLinkedin : true,
+                    showGithub: typeof geminiPersonalInfo.showGithub === 'boolean' ? geminiPersonalInfo.showGithub : true,
+                    showPortfolio: typeof geminiPersonalInfo.showPortfolio === 'boolean' ? geminiPersonalInfo.showPortfolio : true,
+                    showAddress: typeof geminiPersonalInfo.showAddress === 'boolean' ? geminiPersonalInfo.showAddress : false,
                 };
-                parsedCVData.personalInfo = defaultPersonalInfo;
 
+                // Ensure experience, education, skills are arrays even if Gemini omits them
                 parsedCVData.experience = (parsedCVData.experience || []).map(exp => ({ ...exp, id: crypto.randomUUID() }));
                 parsedCVData.education = (parsedCVData.education || []).map(edu => ({ ...edu, id: crypto.randomUUID() }));
                 parsedCVData.skills = (parsedCVData.skills || []).map(skill => ({ ...skill, id: crypto.randomUUID() }));
                 processedResponse = parsedCVData;
             } catch (e) {
                 console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                return next(new Error(`Gemini returned an invalid format for initial CV data. Raw: ${textOutput.substring(0, 200)}`));
+                next(new Error(`Gemini returned an invalid format for initial CV data. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else if (sectionType === "tailor_cv_to_job_description") {
             try {
@@ -309,22 +321,21 @@ Focus on making the CV highly competitive for the specific Job Description.
                 processedResponse = tailoredUpdate;
             } catch (e) {
                 console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
-                return next(new Error(`Gemini returned an invalid format for tailored CV data. Raw: ${textOutput.substring(0, 200)}`));
+                next(new Error(`Gemini returned an invalid format for tailored CV data. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else {
              processedResponse = textOutput; // Default for "summary" or other simple text responses
         }
 
         res.json(processedResponse);
+        return; // Explicit return after successful response
 
     } catch (error) {
         console.error('[AI Route /generate] Gemini API call or response processing failed:', error);
-        // Check if error is an instance of Error to safely access message property
         const message = error instanceof Error ? error.message : 'An unknown error occurred with the AI service.';
-        // Avoid sending overly detailed or internal error messages to the client in production
-        // For now, sending the AI's error message if available, otherwise a generic one.
-        // The `next(error)` call will eventually be handled by the global error handler in server.ts
-        return next(new Error(`Failed to generate AI content: ${message}`));
+        next(new Error(`Failed to generate AI content: ${message}`));
+        return; // Explicit return after next(error)
     }
 });
 
