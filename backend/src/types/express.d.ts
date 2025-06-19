@@ -9,8 +9,16 @@ export {};
 
 declare global {
   namespace Express {
+    /**
+     * Passport declares an empty `User` interface which results in `req.user`
+     * being typed as `User | undefined`. This overrides that interface so that
+     * both `req.user` and the `User` type itself include the fields we expect
+     * after authentication.
+     */
+    export interface User extends AuthenticatedUser {}
+
     export interface Request {
-      user?: AuthenticatedUser; // Use the imported AuthenticatedUser interface
+      user?: AuthenticatedUser;
     }
   }
 }
