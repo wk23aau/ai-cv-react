@@ -424,8 +424,8 @@ const EditorPage: React.FC = () => {
 
   return ( /* ... (JSX remains largely the same, ensure buttons that require auth are disabled if !auth.isAuthenticated) ... */
     <>
-    <div className="flex flex-1 overflow-hidden">
-      <aside className="w-1/3 max-w-md bg-slate-200 p-1 flex flex-col border-r border-slate-300">
+    <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+      <aside className="w-full lg:w-1/3 lg:max-w-md bg-slate-200 p-1 flex flex-col border-r border-slate-300 lg:h-full overflow-y-auto">
             <nav className="flex mb-2 rounded-md bg-slate-300 p-0.5">
                 <button onClick={() => setActivePanel('content')} className={`flex-1 p-2 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${activePanel === 'content' ? `bg-white text-blue-600 shadow-sm` : `text-slate-600 hover:bg-slate-100`}`} aria-pressed={activePanel === 'content'}>
                     <DocumentTextIcon className="w-4 h-4"/> Content
@@ -460,6 +460,15 @@ const EditorPage: React.FC = () => {
             {geminiStatus === GeminiRequestStatus.SUCCESS && activeGeminiAction === 'save_cv_success' && (
                 <p className="text-green-700 text-xs text-center mt-1">CV Saved!</p>
             )}
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isPdfGenerating}
+              title="Download CV as PDF"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            >
+              <DownloadIcon className="w-5 h-5" />
+              {isPdfGenerating ? 'Downloading...' : 'Download PDF'}
+            </button>
           </div>
         )}
             <div className="flex-1 overflow-y-auto pr-1">
@@ -467,7 +476,8 @@ const EditorPage: React.FC = () => {
                 {activePanel === 'theme' && ( <ThemeSelectorPanel currentTheme={currentTheme} onThemeChange={handleThemeChange} onThemeOptionChange={handleThemeOptionChange} /> )}
             </div>
         </aside>
-        <main className="flex-1 bg-slate-50 overflow-auto p-6 flex justify-center items-start">
+        <main className="w-full lg:flex-1 bg-slate-50 overflow-auto p-6 flex justify-center items-start lg:h-full">
+            {/* The direct child of main is given h-full to ensure CVPreview can expand if needed, especially when scaled. */}
             <div className="w-full h-full">
                 <CVPreview cvData={cvData} theme={currentTheme} templateId={currentTemplateId} />
             </div>

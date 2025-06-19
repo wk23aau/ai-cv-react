@@ -1,7 +1,7 @@
-import express, { Router, Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
+import express, { Router, Response, NextFunction } from 'express';
+import crypto from 'crypto'; // For generating UUIDs
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { protect } from '../../middleware/authMiddleware';
+import { protect, AuthRequest } from '../../middleware/authMiddleware';
 import {
     GenerateAIContentRequest,
     SectionContentType,
@@ -11,15 +11,17 @@ import {
     EducationEntry,
     SkillEntry,
     PersonalInfo,
-    // TailoredCVUpdate
+    // TailoredCVUpdate // This type is complex and only used as a return type, will define structure directly in prompt or handle as generic object for now if issues arise
 } from '../../types';
 
 // --- Google GenAI Setup ---
+// Ensure GEMINI_API_KEY is set in your backend environment variables (e.g., in .env file)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_TEXT_MODEL = "gemini-pro";
+const GEMINI_TEXT_MODEL = "gemini-pro"; // Or your desired model
 
 if (!GEMINI_API_KEY) {
-  console.error("GEMINI_API_KEY for backend AI service is not set.");
+  console.error("GEMINI_API_KEY for backend AI service is not set. Please ensure the environment variable is configured.");
+  // Depending on policy, you might want to throw an error here to prevent startup without the key
 }
 
 let ai: GoogleGenAI | null = null;
@@ -31,6 +33,7 @@ if (GEMINI_API_KEY) {
 
 const router: Router = express.Router();
 
+// Interface for TailoredCVUpdate directly here for simplicity, mirroring frontend
 interface TailoredCVUpdate {
   updatedSummary: string;
   updatedSkills: SkillEntry[];
@@ -38,30 +41,30 @@ interface TailoredCVUpdate {
   suggestedNewExperienceEntries?: Array<Omit<ExperienceEntry, 'id'>>;
 }
 
-router.post('/generate', protect, async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) { // Added check
-        return res.status(401).json({ error: 'Not authorized, user data not found in AI route' });
-    }
+
+// POST /api/ai/generate
+router.post('/generate', protect, async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!ai) {
-        res.status(503).json({ error: "AI Service is not configured or API key is missing." });
+        res.status(503).json({ message: "AI Service is not configured or API key is missing." });
         return;
     }
 
     const { sectionType, userInput, context }: GenerateAIContentRequest = req.body;
 
-    // console.log(`[AI Route /generate] Received request from user: ${req.user.userId}`); // Safe access
-    // console.log(`  Section Type: ${sectionType}`);
-    // console.log(`  User Input length: ${userInput?.length || 0}`);
+    console.log(`[AI Route /generate] Received request from user: ${req.user?.userId}`);
+    console.log(`  Section Type: ${sectionType}`);
+    console.log(`  User Input length: ${userInput?.length || 0}`);
+    // console.log(`  Context: ${JSON.stringify(context, null, 2)}`); // Can be verbose
 
-    if (!sectionType || userInput === undefined) {
-        res.status(400).json({ error: 'sectionType and userInput are required fields.' });
+    if (!sectionType || userInput === undefined) { // userInput can be an empty string
+        res.status(400).json({ message: 'sectionType and userInput are required fields.' });
         return;
     }
 
     let prompt = "";
     let isJsonResponseType = false;
 
-    // --- Prompt Construction Logic ---
+    // --- Prompt Construction Logic (adapted from frontend geminiService.ts) ---
     switch (sectionType) {
         case "summary":
           prompt = `Generate a concise and compelling professional summary for a CV (2-4 sentences). Base it on the following input: "${userInput}".`;
@@ -217,39 +220,27 @@ Focus on making the CV highly competitive for the specific Job Description.
             isJsonResponseType = true;
             break;
         default:
-            console.error(`Unsupported section type for generation: ${sectionType}`);
-            res.status(400).json({ error: `Unsupported section type: ${sectionType}` });
+            const exhaustiveCheck: never = sectionType;
+            console.error(`Unsupported section type for generation: ${exhaustiveCheck}`);
+            res.status(400).json({ message: `Unsupported section type: ${exhaustiveCheck}` });
             return;
     }
 
     try {
-        const requestPayload = {
+        const response: GenerateContentResponse = await ai.models.generateContent({
             model: GEMINI_TEXT_MODEL,
-            contents: [{ role: "user" as const, parts: [{ text: prompt }] }],
-            ...(isJsonResponseType
-                ? { generationConfig: { responseMimeType: "application/json" as const } }
-                : {})
-        };
-        const generationResult = await ai.models.generateContent(requestPayload);
-        let textOutput = "";
-        if (generationResult.response && typeof generationResult.response.text === 'function') {
-          textOutput = generationResult.response.text().trim();
-        } else {
-          console.warn('[AI Route /generate] Gemini response.response.text() was not available or response was not structured as expected. Attempting to extract text from candidates.');
-          if (generationResult.response && generationResult.response.candidates && generationResult.response.candidates.length > 0) {
-            const firstCandidate = generationResult.response.candidates[0];
-            if (firstCandidate.content && firstCandidate.content.parts && firstCandidate.content.parts.length > 0 && typeof firstCandidate.content.parts[0].text === 'string') {
-              textOutput = firstCandidate.content.parts[0].text.trim();
-            } else if (typeof firstCandidate.text === 'string') { // some older or variant structures might have text directly on candidate
-               textOutput = firstCandidate.text.trim();
-            }
-          }
-          if (!textOutput) {
-            console.error('[AI Route /generate] Failed to extract text from Gemini response. Response structure:', JSON.stringify(generationResult.response, null, 2).substring(0, 500));
-            // Consider calling next(new Error("AI service returned an empty or unreadable response.")) here if text is crucial
-          }
-        }
+            contents: prompt,
+            // @ts-ignore - TODO: Fix this type issue if library is incorrectly typed or if there's a version mismatch.
+            // The type for GenerateContentRequest['config'] might not expect responseMimeType directly.
+            // It might be under generationConfig.responseMimeType.
+            config: isJsonResponseType
+                ? { responseMimeType: "application/json" }
+                // : { thinkingConfig: { thinkingBudget: 0 } } // thinkingConfig seems not available or deprecated
+                : { }
+        });
 
+        // Safely access and trim text, defaulting to empty string if response.text is undefined
+        let textOutput = response.text ? response.text.trim() : "";
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
         const match = textOutput.match(fenceRegex);
         if (match && match[2]) {
@@ -262,39 +253,39 @@ Focus on making the CV highly competitive for the specific Job Description.
             try {
                 processedResponse = JSON.parse(textOutput);
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
-                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
-                return;
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
+                if (textOutput.includes(',')) processedResponse = textOutput.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+                else processedResponse = textOutput ? [textOutput] : [];
             }
         } else if (sectionType === "new_experience_entry") {
             try {
                 const parsedEntry: Omit<ExperienceEntry, 'id'> = JSON.parse(textOutput);
                 processedResponse = { ...parsedEntry, id: crypto.randomUUID() };
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
-                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
-                return;
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
+                next(new Error(`Gemini returned an invalid format for new experience entry. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else if (sectionType === "new_education_entry") {
             try {
                 const parsedEntry: Omit<EducationEntry, 'id'> = JSON.parse(textOutput);
                 processedResponse = { ...parsedEntry, id: crypto.randomUUID() };
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
-                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
-                return;
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
+                next(new Error(`Gemini returned an invalid format for new education entry. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else if (sectionType === "initial_cv_from_title" || sectionType === "initial_cv_from_job_description") {
             try {
                 let parsedCVData: CVData = JSON.parse(textOutput);
                 const geminiPersonalInfo = parsedCVData.personalInfo || {} as Partial<PersonalInfo>;
                 const extractedTitle = sectionType === "initial_cv_from_job_description"
-                                       ? (geminiPersonalInfo.title || "Job Title (from JD)")
-                                       : userInput;
+                                       ? (geminiPersonalInfo.title || "Job Title (from JD)") // Prioritize Gemini's title from JD if available
+                                       : userInput; // For "initial_cv_from_title", userInput is the title
 
                 parsedCVData.personalInfo = {
-                    name: "Your Name (Update Me!)",
-                    title: geminiPersonalInfo.title || extractedTitle,
+                    name: "Your Name (Update Me!)", // Always use placeholder
+                    title: geminiPersonalInfo.title || extractedTitle, // Prioritize Gemini's title, then extracted, then userInput for title case
                     phone: geminiPersonalInfo.phone || "",
                     email: geminiPersonalInfo.email || "",
                     linkedin: geminiPersonalInfo.linkedin || "",
@@ -310,14 +301,16 @@ Focus on making the CV highly competitive for the specific Job Description.
                     showPortfolio: typeof geminiPersonalInfo.showPortfolio === 'boolean' ? geminiPersonalInfo.showPortfolio : true,
                     showAddress: typeof geminiPersonalInfo.showAddress === 'boolean' ? geminiPersonalInfo.showAddress : false,
                 };
+
+                // Ensure experience, education, skills are arrays even if Gemini omits them
                 parsedCVData.experience = (parsedCVData.experience || []).map(exp => ({ ...exp, id: crypto.randomUUID() }));
                 parsedCVData.education = (parsedCVData.education || []).map(edu => ({ ...edu, id: crypto.randomUUID() }));
                 parsedCVData.skills = (parsedCVData.skills || []).map(skill => ({ ...skill, id: crypto.randomUUID() }));
                 processedResponse = parsedCVData;
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
-                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
-                return;
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
+                next(new Error(`Gemini returned an invalid format for initial CV data. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else if (sectionType === "tailor_cv_to_job_description") {
             try {
@@ -330,23 +323,23 @@ Focus on making the CV highly competitive for the specific Job Description.
                 }
                 processedResponse = tailoredUpdate;
             } catch (e) {
-                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output snippet:", textOutput.substring(0,100));
-                next(new Error(`Gemini returned an invalid format for ${sectionType}. Raw output started with: ${textOutput.substring(0, 100)}`));
-                return;
+                console.error(`[AI Route] Failed to parse JSON for ${sectionType}:`, e, "\nRaw output:", textOutput);
+                next(new Error(`Gemini returned an invalid format for tailored CV data. Raw: ${textOutput.substring(0, 200)}`));
+                return; // Explicit return after next()
             }
         } else {
-             processedResponse = textOutput;
+             processedResponse = textOutput; // Default for "summary" or other simple text responses
         }
 
         res.json(processedResponse);
-        return;
+        return; // Explicit return after successful response
 
     } catch (error) {
         console.error('[AI Route /generate] Gemini API call or response processing failed:', error);
         const message = error instanceof Error ? error.message : 'An unknown error occurred with the AI service.';
         next(new Error(`Failed to generate AI content: ${message}`));
-        return;
+        return; // Explicit return after next(error)
     }
-}) /* Removed cast here as per general instruction */);
+});
 
 export default router;

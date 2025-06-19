@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useEffect } from 'react'; // Added useEffect
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from 'react-router-dom'; // Added useLocation
 import MainHeader from './components/layout/MainHeader';
 import MainFooter from './components/layout/MainFooter';
-import AdminLayout from './components/layout/AdminLayout';
 import LoadingSpinner from './components/shared/LoadingSpinner'; // Assuming this exists
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
@@ -16,7 +15,6 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage')); // Lazy load it
 
 // Auth context/state would typically be managed here or in a dedicated provider
 // For now, just basic routing structure.
@@ -61,12 +59,8 @@ const App: React.FC = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
         </Route>
-        <Route element={<AdminProtectedRoute />}> {/* Protects all nested routes */}
-          <Route path="/admin" element={<AdminLayout />}> {/* AdminLayout provides structure for /admin/* */}
-            <Route path="dashboard" element={<AdminDashboardPage />} />
-            {/* Example for a future settings page, can be commented out or added if a placeholder is desired */}
-            {/* <Route path="settings" element={<div>Admin Settings Placeholder Page</div>} /> */}
-          </Route>
+        <Route element={<AdminProtectedRoute />}>
+          <Route path="/admin" element={<AdminDashboardPage />} />
         </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>
@@ -79,11 +73,6 @@ const App: React.FC = () => {
         <Route path="/signup" element={
           <Suspense fallback={<div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading..."/></div>}>
             <SignupPage />
-          </Suspense>
-        } />
-        <Route path="/auth/callback" element={
-          <Suspense fallback={<div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading..."/></div>}>
-            <AuthCallbackPage />
           </Suspense>
         } />
       </Routes>

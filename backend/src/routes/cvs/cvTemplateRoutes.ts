@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
         res.json(templates);
     } catch (error) {
         console.error('Get CV templates error:', error);
-        res.status(500).json({ error: 'Server error while fetching CV templates' });
+        res.status(500).json({ message: 'Server error while fetching CV templates' });
     }
 });
 

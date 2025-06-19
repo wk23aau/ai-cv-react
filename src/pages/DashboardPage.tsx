@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom/client'; // Added for React 18 rendering
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext'; // Import useAuth
 import { User } from '../AuthContext'; // Import User type if not already available globally
+import { DownloadIcon, DEFAULT_THEME } from '../constants'; // Added
+import CVPreview from '../components/CVPreview'; // Added
+import { CVData, ThemeOptions } from '../types'; // Added
 
 // Placeholder for CV metadata type - ensure this matches your actual backend response structure
 interface CVMeta {
@@ -11,6 +15,8 @@ interface CVMeta {
   created_at: string;
   updated_at: string;
 }
+
+declare var html2pdf: any; // Added for html2pdf
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +28,7 @@ const DashboardPage: React.FC = () => {
   // isLoadingUser is now covered by auth.isLoading
   const [isLoadingCvs, setIsLoadingCvs] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDownloadingPdfForCvId, setIsDownloadingPdfForCvId] = useState<string | number | null>(null); // Added state
 
   // Form states for profile update
   // Initialize with authUser data or empty strings if not available yet
@@ -163,6 +170,98 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleDirectDownload = async (cvId: string | number, cvName: string, templateIdParam?: string | number | null) => {
+    if (!authToken) {
+      setError("Authentication required to download CV.");
+      alert("Authentication required to download CV."); // User feedback
+      return;
+    }
+    setIsDownloadingPdfForCvId(cvId);
+    const hiddenDivId = `pdf-render-target-${cvId}`;
+    let hiddenDiv: HTMLElement | null = null; // Initialize to null
+    let root: any = null;
+
+    try {
+      const response = await fetch(`/api/cvs/${cvId}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: 'Failed to fetch CV data for PDF generation.' }));
+        throw new Error(errData.message);
+      }
+      const fetchedCv = await response.json();
+      const cvDataForPreview: CVData = fetchedCv.cv_data;
+      const templateIdForPreview = fetchedCv.template_id || templateIdParam || 'classic';
+      const effectiveTheme: ThemeOptions = { ...DEFAULT_THEME, previewScale: 1 };
+
+      if (!cvDataForPreview) {
+        throw new Error("CV data is missing in the fetched response.");
+      }
+
+      hiddenDiv = document.createElement('div');
+      hiddenDiv.id = hiddenDivId;
+      hiddenDiv.style.position = 'absolute';
+      hiddenDiv.style.left = '-9999px';
+      hiddenDiv.style.top = '-9999px';
+      hiddenDiv.style.width = '210mm';
+      hiddenDiv.style.height = 'auto';
+      hiddenDiv.style.background = effectiveTheme.backgroundColor === 'white' ? '#FFFFFF' : (DEFAULT_THEME.backgroundColor === 'slate-50' ? '#F8FAFC' : '#FFFFFF'); // Ensure background matches for html2pdf
+      document.body.appendChild(hiddenDiv);
+
+      root = ReactDOM.createRoot(hiddenDiv);
+      root.render(
+        <React.StrictMode>
+          <CVPreview
+            cvData={cvDataForPreview}
+            theme={effectiveTheme}
+            templateId={templateIdForPreview}
+          />
+        </React.StrictMode>
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const pdfFilename = `CV_${(cvName || 'Untitled').replace(/\s+/g, '_')}.pdf`;
+      const pdfOptions = {
+        margin: 0,
+        filename: pdfFilename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: effectiveTheme.backgroundColor === 'white' ? '#FFFFFF' : (DEFAULT_THEME.backgroundColor === 'slate-50' ? '#F8FAFC' : '#FFFFFF'),
+          width: hiddenDiv.scrollWidth,
+          height: hiddenDiv.scrollHeight,
+          windowWidth: hiddenDiv.scrollWidth,
+          windowHeight: hiddenDiv.scrollHeight,
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const elementToPrint = hiddenDiv.firstChild as HTMLElement;
+      if (!elementToPrint) {
+          throw new Error("CVPreview did not render content into the hidden div.");
+      }
+
+      await html2pdf().from(elementToPrint).set(pdfOptions).save();
+
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      const errorMsg = err instanceof Error ? err.message : "Could not generate PDF.";
+      setError(errorMsg);
+      alert(`Error generating PDF: ${errorMsg}`);
+    } finally {
+      if (root) {
+        root.unmount();
+      }
+      if (hiddenDiv && hiddenDiv.parentElement) {
+        document.body.removeChild(hiddenDiv);
+      }
+      setIsDownloadingPdfForCvId(null);
+    }
+  };
+
   // Use auth.isLoading for the main loading state
   if (isAuthLoading) {
     return (
@@ -255,12 +354,24 @@ const DashboardPage: React.FC = () => {
               <tbody className="bg-white divide-y divide-slate-200">
                 {cvs.map((cv) => (
                   <tr key={cv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{cv.name || 'Untitled CV'}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900 max-w-xs md:max-w-sm truncate">{cv.name || 'Untitled CV'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(cv.updated_at).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                      <button onClick={() => navigate(`/editor/${cv.id}`)} className="text-sky-600 hover:text-sky-800 transition-colors">Edit</button>
-                      <button onClick={() => navigate(`/editor/${cv.id}`)} className="text-green-600 hover:text-green-800 transition-colors">View/Download</button>
-                      <button onClick={() => handleDeleteCv(cv.id)} className="text-red-600 hover:text-red-800 transition-colors">Delete</button>
+                    <td className="px-6 py-4 text-sm font-medium">
+                      <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 items-start">
+                        <button onClick={() => navigate(`/editor/${cv.id}`)} className="text-sky-600 hover:text-sky-800 transition-colors">Edit</button>
+                        <button
+                          onClick={() => handleDirectDownload(cv.id, cv.name, cv.template_id)}
+                        disabled={isDownloadingPdfForCvId === cv.id}
+                        className="text-green-600 hover:text-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                          {isDownloadingPdfForCvId === cv.id ? (
+                            <>Generating...</>
+                          ) : (
+                            <><DownloadIcon className="w-4 h-4 mr-1" />Download</>
+                          )}
+                        </button>
+                        <button onClick={() => handleDeleteCv(cv.id)} className="text-red-600 hover:text-red-800 transition-colors">Delete</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
