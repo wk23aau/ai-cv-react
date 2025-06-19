@@ -1,11 +1,10 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import express, { Router, Request, Response, NextFunction, RequestHandler } from 'express'; // Added RequestHandler
 import pool from '../../db';
 import { protect } from '../../middleware/authMiddleware';
-import { AuthenticatedUser } from '../../types/auth';
 
 const router = Router();
 
-const getUserProfileHandler = async (
+const getUserProfileHandler: RequestHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -16,11 +15,10 @@ const getUserProfileHandler = async (
       return;
     }
 
-    const userId = (req.user as AuthenticatedUser).userId;
-    const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [userId]);
+    const [users] = await pool.query<any[]>('SELECT id, username, email, created_at, updated_at, is_admin FROM users WHERE id = ?', [req.user.userId]);
 
     if (users.length === 0) {
-      res.status(404).json({ message: 'User not found' }); // Consider { error: 'message' }
+      res.status(404).json({ message: 'User not found' });
       return;
     }
     res.json(users[0]);
@@ -29,7 +27,7 @@ const getUserProfileHandler = async (
   }
 };
 
-const updateUserProfileHandler = async (
+const updateUserProfileHandler: RequestHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -41,10 +39,10 @@ const updateUserProfileHandler = async (
     }
 
     const { username, email } = req.body;
-    const userId = (req.user as AuthenticatedUser).userId;
+    const userId = req.user.userId;
 
     if (!username && !email) {
-      res.status(400).json({ message: 'No fields to update' }); // Consider { error: 'message' }
+      res.status(400).json({ message: 'No fields to update' });
       return;
     }
 
@@ -67,7 +65,7 @@ const updateUserProfileHandler = async (
     const [result] = await pool.query<any>(query, params);
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ message: 'User not found or no changes made' }); // Consider { error: 'message' }
+      res.status(404).json({ message: 'User not found or no changes made' });
       return;
     }
 
@@ -76,7 +74,7 @@ const updateUserProfileHandler = async (
 
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
-      res.status(409).json({ message: 'Username or email already taken.' }); // Consider { error: 'message' }
+      res.status(409).json({ message: 'Username or email already taken.' });
       return;
     }
     next(error);
