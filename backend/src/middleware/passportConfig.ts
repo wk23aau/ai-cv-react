@@ -60,11 +60,18 @@ passport.use(
         // The existing user schema might not have 'is_admin' set by default or 'google_id'.
         // This part might need adjustment based on the exact schema and how complete the 'user' object is.
 
+        // Ensure user object is correctly populated before this point
+        if (!user || typeof user.id === 'undefined' || typeof user.username === 'undefined' || typeof user.email === 'undefined') {
+          // Log the user object if it's not what's expected
+          console.error('Incomplete user object in passportConfig:', user);
+          return done(new Error('Incomplete user data for JWT.'), undefined);
+        }
+
         const tokenPayload = {
           userId: user.id,
           username: user.username,
-          email: user.email, // Ensure email is part of the token
-          isAdmin: user.is_admin || 0, // Ensure isAdmin is part of the token, defaulting to 0 (false)
+          email: user.email,
+          isAdmin: !!user.is_admin, // Ensure isAdmin is boolean
         };
         const appToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });
 
