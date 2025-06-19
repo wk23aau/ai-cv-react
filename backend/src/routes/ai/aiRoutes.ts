@@ -43,7 +43,8 @@ interface TailoredCVUpdate {
 
 
 // POST /api/ai/generate
-router.post('/generate', protect, async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Apply 'as express.RequestHandler' to the inline handler
+router.post('/generate', protect, (async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!ai) {
         res.status(503).json({ message: "AI Service is not configured or API key is missing." });
         return;
@@ -340,6 +341,6 @@ Focus on making the CV highly competitive for the specific Job Description.
         next(new Error(`Failed to generate AI content: ${message}`));
         return; // Explicit return after next(error)
     }
-});
+}) as express.RequestHandler); // Cast the entire inline handler
 
 export default router;

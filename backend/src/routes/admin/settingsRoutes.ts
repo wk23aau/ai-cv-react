@@ -37,7 +37,7 @@ async function writeGaConfig(config: GaConfig): Promise<void> {
 }
 
 // POST /api/admin/settings/ga - Save GA Configuration
-router.post('/ga', protect, admin, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/ga', protect, admin, (async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { measurementId, propertyId } = req.body;
 
   if (typeof measurementId !== 'string' || typeof propertyId !== 'string') {
@@ -60,10 +60,10 @@ router.post('/ga', protect, admin, async (req: AuthRequest, res: Response, next:
     console.error('Error saving GA settings:', error);
     next(new Error('Failed to save GA settings due to a server error.')); // Pass a generic error to global handler
   }
-});
+}) as express.RequestHandler);
 
 // GET /api/admin/settings/ga - Retrieve GA Configuration
-router.get('/ga', protect, admin, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/ga', protect, admin, (async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const config = await readGaConfig();
     res.json({
@@ -75,6 +75,6 @@ router.get('/ga', protect, admin, async (req: AuthRequest, res: Response, next: 
     // If readGaConfig itself throws an error (not ENOENT), it will be caught here.
     next(new Error('Failed to retrieve GA settings due to a server error.'));
   }
-});
+}) as express.RequestHandler);
 
 export default router;

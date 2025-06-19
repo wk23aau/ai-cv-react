@@ -15,7 +15,7 @@ interface UserDbRow {
 // PUT /api/admin/users/:userId/toggle-active
 // Toggles the is_active status of a user.
 // Protected: Admin only
-router.put('/:userId/toggle-active', protect, admin, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.put('/:userId/toggle-active', protect, admin, (async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { userId } = req.params;
 
   if (!userId || isNaN(parseInt(userId))) {
@@ -73,6 +73,6 @@ router.put('/:userId/toggle-active', protect, admin, async (req: AuthRequest, re
       connection.release(); // Ensure connection is released
     }
   }
-});
+}) as express.RequestHandler);
 
 export default router;

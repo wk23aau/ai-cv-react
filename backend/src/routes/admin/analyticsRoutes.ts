@@ -27,7 +27,7 @@ const analyticsDataClient = new BetaAnalyticsDataClient();
 // Fetches real analytics data from Google Analytics Data API.
 // NOTE: Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set for authentication.
 //       The GA Property ID will be sourced from ga_config.json first, then fall back to environment variable.
-router.get('/overview', protect, admin, async (req: AuthRequest, res: Response) => {
+router.get('/overview', protect, admin, (async (req: AuthRequest, res: express.Response) => { // Added express.Response for clarity
   let finalPropertyId = '';
   let propertyIdSource = '';
 
@@ -138,6 +138,6 @@ router.get('/overview', protect, admin, async (req: AuthRequest, res: Response) 
     });
     return; // Added return for consistency
   }
-});
+}) as express.RequestHandler);
 
 export default router;
