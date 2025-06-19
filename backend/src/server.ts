@@ -5,6 +5,7 @@ import authRoutes from './routes/auth/authRoutes';
 import userRoutes from './routes/users/userRoutes';
 import cvRoutes from './routes/cvs/cvRoutes';
 import cvTemplateRoutes from './routes/cvs/cvTemplateRoutes';
+import aiRoutes from './routes/ai/aiRoutes'; // Import AI routes
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cvs', cvRoutes);
 app.use('/api/cv-templates', cvTemplateRoutes);
+app.use('/api/ai', aiRoutes); // Mount AI routes
 
 app.get('/', (req, res) => {
   res.send('Hello from CV Builder Backend!');

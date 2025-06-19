@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css'; // Assuming a global stylesheet, adjust if necessary
 import App from './App';
+import { AuthProvider } from './AuthContext'; // Import AuthProvider
 // import reportWebVitals from './reportWebVitals'; // Optional, from CRA
 
 const root = ReactDOM.createRoot(
@@ -9,7 +10,9 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );
 

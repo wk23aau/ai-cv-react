@@ -1,17 +1,8 @@
-// Placeholder for actual auth token retrieval logic
-// In a real app, this would come from AuthContext or localStorage after login
-const getAuthToken = (): string | null => {
-  // Example: return localStorage.getItem('userToken');
-  // For now, returning null or a dummy token for structure compilation.
-  // This needs to be replaced with actual token logic for APIs to work.
-  console.warn("getAuthToken: Using placeholder. Replace with actual token retrieval.");
-  return "dummy-jwt-token"; // Replace this!
-};
-
 import React, { useState, useCallback, useEffect, startTransition } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext'; // Import useAuth
 import { trackEvent } from '../services/analyticsService';
-import { CVData, ThemeOptions, GeminiRequestStatus, AutofillTarget, ExperienceEntry, CVSection, SkillEntry, EducationEntry, TailoredCVUpdate, SectionContentType as SectionGenType } from '../types'; // Renamed SectionContentType to avoid conflict
+import { CVData, ThemeOptions, GeminiRequestStatus, AutofillTarget, ExperienceEntry, CVSection, SkillEntry, EducationEntry, TailoredCVUpdate, SectionContentType as SectionGenType } from '../types';
 import { INITIAL_CV_DATA, DEFAULT_THEME, PaletteIcon, DocumentTextIcon, DownloadIcon, SparklesIcon, WandSparklesIcon } from '../constants';
 import CVPreview from '../components/CVPreview';
 import ThemeSelectorPanel from '../components/panels/ThemeSelectorPanel';
@@ -23,75 +14,49 @@ import { generateCVContent } from '../services/geminiService';
 declare var html2pdf: any;
 
 type ActivePanel = 'theme' | 'content';
-// type InitialInputType = 'title' | 'description'; // Removed as InitialCVGenerator is removed
+type InitialInputType = 'title' | 'description';
 
 const EditorPage: React.FC = () => {
+  const auth = useAuth(); // Use AuthContext
   const location = useLocation();
   const { cvId } = useParams<{ cvId: string }>();
   const navigate = useNavigate();
+
   const [cvData, setCVData] = useState<CVData>(INITIAL_CV_DATA);
   const [currentTheme, setCurrentTheme] = useState<ThemeOptions>(DEFAULT_THEME);
   const [activePanel, setActivePanel] = useState<ActivePanel>('content');
   const [geminiStatus, setGeminiStatus] = useState<GeminiRequestStatus>(GeminiRequestStatus.IDLE);
   const [geminiError, setGeminiError] = useState<string | null>(null);
-  // const [isAppLoading, setIsAppLoading] = useState<boolean>(true); // Removed
   const [isPdfGenerating, setIsPdfGenerating] = useState<boolean>(false);
   const [jobDescriptionForTailoring, setJobDescriptionForTailoring] = useState<string>('');
-  const [activeGeminiAction, setActiveGeminiAction] = useState<string | null>(null); // e.g. 'initial_cv_title', 'initial_cv_jd', 'tailor_cv'
+  const [activeGeminiAction, setActiveGeminiAction] = useState<string | null>(null);
   const [applyDetailedExperienceUpdates, setApplyDetailedExperienceUpdates] = useState<boolean>(true);
   const [currentCvId, setCurrentCvId] = useState<string | null>(null);
-  const [isEditorReady, setIsEditorReady] = useState<boolean>(false); // New state
-  const [currentTemplateId, setCurrentTemplateId] = useState<string | number | null>('classic'); // Default to classic
+  const [isEditorReady, setIsEditorReady] = useState<boolean>(false);
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | number | null>('classic');
 
-
+  // Removed localStorage loading for cvData and theme as they will be fetched from backend or initialized.
+  // Job description and applyDetailedExperienceUpdates are UI state, can remain in localStorage or be reset.
   useEffect(() => {
     try {
-      const savedCVData = localStorage.getItem('geminiCVData');
-      const savedTheme = localStorage.getItem('geminiCVTheme');
       const savedJobDescription = localStorage.getItem('geminiJobDescription');
       const savedApplyDetailedUpdates = localStorage.getItem('geminiApplyDetailedUpdates');
-
-
-      if (savedCVData) setCVData(JSON.parse(savedCVData));
-      if (savedTheme) setCurrentTheme(JSON.parse(savedTheme));
-      // if (initialCvFlag) setIsInitialCvGenerated(JSON.parse(initialCvFlag)); // Removed
       if (savedJobDescription) setJobDescriptionForTailoring(savedJobDescription);
       if (savedApplyDetailedUpdates) setApplyDetailedExperienceUpdates(JSON.parse(savedApplyDetailedUpdates));
-
     } catch (error) {
-      console.error("Failed to load data from localStorage:", error);
-      setCVData(prev => (Object.keys(prev).length === 0 ? INITIAL_CV_DATA : prev));
-      setCurrentTheme(prev => (Object.keys(prev).length === 0 ? DEFAULT_THEME : prev));
-      // setIsInitialCvGenerated(false); // Removed
+      console.error("Failed to load UI state from localStorage:", error);
       setJobDescriptionForTailoring('');
       setApplyDetailedExperienceUpdates(true);
     }
-    // setIsAppLoading(false); // Removed
   }, []);
 
   useEffect(() => {
-    // if(!isAppLoading) { // Condition removed
-        // localStorage.setItem('geminiCVData', JSON.stringify(cvData)); // Backend now handles persistence
-    // }
-  }, [cvData]); // isAppLoading removed from dependency array
+    localStorage.setItem('geminiJobDescription', jobDescriptionForTailoring);
+  }, [jobDescriptionForTailoring]);
 
   useEffect(() => {
-    // if(!isAppLoading) { // Condition removed
-        // localStorage.setItem('geminiCVTheme', JSON.stringify(currentTheme)); // Theme might be linked to CV or template in backend
-    // }
-  }, [currentTheme]); // isAppLoading removed from dependency array
-
-  useEffect(() => {
-    // if (!isAppLoading) { // Condition removed
-        localStorage.setItem('geminiJobDescription', jobDescriptionForTailoring);
-    // }
-  }, [jobDescriptionForTailoring]); // isAppLoading removed from dependency array
-
-  useEffect(() => {
-    // if (!isAppLoading) { // Condition removed
-        localStorage.setItem('geminiApplyDetailedUpdates', JSON.stringify(applyDetailedExperienceUpdates));
-    // }
-  }, [applyDetailedExperienceUpdates]); // isAppLoading removed from dependency array
+    localStorage.setItem('geminiApplyDetailedUpdates', JSON.stringify(applyDetailedExperienceUpdates));
+  }, [applyDetailedExperienceUpdates]);
 
 
   const handleCVDataChange = useCallback((newData: CVData) => {
@@ -110,54 +75,54 @@ const EditorPage: React.FC = () => {
     setGeminiError(null);
   }, []);
 
-  const handleInitialCvGeneration = async (inputValue: string, inputType: InitialInputType, templateId?: string | number | null) => { // Added templateId parameter
+  const handleInitialCvGeneration = async (inputValue: string, inputType: InitialInputType, templateIdParam?: string | number | null) => {
+    if (!auth.token) {
+      setGeminiError("Please log in to generate a CV.");
+      setGeminiStatus(GeminiRequestStatus.ERROR);
+      navigate('/login', { state: { from: location } });
+      return;
+    }
     const actionType = inputType === 'title' ? 'initial_cv_title' : 'initial_cv_jd';
     setActiveGeminiAction(actionType);
     setGeminiStatus(GeminiRequestStatus.LOADING);
     setGeminiError(null);
     try {
         const generationMode = inputType === 'title' ? 'initial_cv_from_title' : 'initial_cv_from_job_description';
-        const result = await generateCVContent(generationMode as SectionGenType, inputValue);
+        const result = await generateCVContent(auth.token, generationMode as SectionGenType, inputValue); // Pass auth.token
         startTransition(() => {
             setCVData(result as CVData);
-            // --- BEGIN Backend Save Logic for New CV ---
-            const token = getAuthToken();
-            if (token) {
-              fetch('/api/cvs', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                // Ensure cv_data is what the backend expects (the 'result' object)
-                body: JSON.stringify({ cv_data: result, template_id: templateId || currentTemplateId || 'classic', name: (result as CVData).personalInfo.name || 'Untitled CV' }),
-              })
-              .then(response => {
-                if (!response.ok) {
-                  // Try to parse error message from backend if available
-                  return response.json().then(err => { throw new Error(err.message || `Failed to save (HTTP ${response.status})`); });
-                }
-                return response.json();
-              })
-              .then(savedCv => {
-                console.log('New CV saved to backend:', savedCv);
-                if (savedCv && savedCv.id) {
-                    setCurrentCvId(savedCv.id);
-                    // If CV is saved to backend, we might not need to store it in localStorage under 'geminiCVData'
-                    // localStorage.removeItem('geminiCVData'); // Or update it with the ID for consistency
-                }
-              })
-              .catch(saveError => {
-                console.error('Error saving new CV to backend:', saveError);
-                setGeminiError(`CV generated locally but failed to save to server: ${saveError instanceof Error ? saveError.message : String(saveError)}. It is still available in this session.`);
-                // If save fails, cvData is still in state, and localStorage saving (if active) will preserve it.
-              });
-            } else {
-              console.warn("No auth token, new CV not saved to backend. Will rely on localStorage if configured.");
-              // If localStorage is the fallback, ensure it saves here or by its dedicated useEffect
-            }
-            // --- END Backend Save Logic for New CV ---
-            setIsEditorReady(true); // Mark editor as ready
+            // Save the new CV to backend
+            fetch('/api/cvs', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${auth.token}`, // Use auth.token
+              },
+              body: JSON.stringify({
+                cv_data: result,
+                template_id: templateIdParam || currentTemplateId || 'classic',
+                name: (result as CVData).personalInfo.name || 'Untitled CV'
+              }),
+            })
+            .then(response => {
+              if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.message || `Failed to save (HTTP ${response.status})`); });
+              }
+              return response.json();
+            })
+            .then(savedCv => {
+              console.log('New CV saved to backend:', savedCv);
+              if (savedCv && savedCv.id) {
+                  setCurrentCvId(savedCv.id);
+                  // Navigate to the new CV's URL to reflect its ID in the path
+                  navigate(`/editor/${savedCv.id}`, { replace: true });
+              }
+            })
+            .catch(saveError => {
+              console.error('Error saving new CV to backend:', saveError);
+              setGeminiError(`CV generated but failed to save: ${saveError instanceof Error ? saveError.message : String(saveError)}.`);
+            });
+            setIsEditorReady(true);
             setGeminiStatus(GeminiRequestStatus.SUCCESS);
             setActiveGeminiAction(null);
         });
@@ -171,6 +136,11 @@ const EditorPage: React.FC = () => {
   };
 
   const handleAutofillRequest = useCallback(async (target: AutofillTarget, promptValue: string, context?: any) => {
+    if (!auth.token) {
+      setGeminiError("Please log in to use AI features.");
+      setGeminiStatus(GeminiRequestStatus.ERROR);
+      return;
+    }
     const fieldKey = context?.generationType === 'new_experience_entry'
         ? `new_experience_entry_${cvData.experience.length}`
         : target.field
@@ -180,7 +150,6 @@ const EditorPage: React.FC = () => {
     setActiveGeminiAction(fieldKey);
     setGeminiStatus(GeminiRequestStatus.LOADING);
     setGeminiError(null);
-
     const generationType = (context?.generationType as SectionGenType) || null;
 
     if (!generationType) {
@@ -193,12 +162,10 @@ const EditorPage: React.FC = () => {
     }
 
     try {
-      const result = await generateCVContent(generationType, promptValue, context);
-
+      const result = await generateCVContent(auth.token, generationType, promptValue, context); // Pass auth.token
       startTransition(() => {
         setCVData(prevCvData => {
           const newCvData = JSON.parse(JSON.stringify(prevCvData));
-
           if (generationType === 'new_experience_entry' && target.section === 'experience' && target.action === 'add_new_gemini') {
               const newEntry = result as ExperienceEntry;
               newCvData.experience.push({ ...newEntry, id: newEntry.id || crypto.randomUUID() });
@@ -208,17 +175,11 @@ const EditorPage: React.FC = () => {
           } else if (target.section === 'summary' && typeof result === 'string') {
             newCvData.summary = result;
           } else if (target.section.startsWith('experience.') && target.field === 'responsibilities' && Array.isArray(result) && target.index !== undefined) {
-            if (newCvData.experience[target.index]) {
-              newCvData.experience[target.index].responsibilities = result as string[];
-            }
+            if (newCvData.experience[target.index]) newCvData.experience[target.index].responsibilities = result as string[];
           } else if (target.section.startsWith('education.') && target.field === 'details' && Array.isArray(result) && target.index !== undefined) {
-            if (newCvData.education[target.index]) {
-              newCvData.education[target.index].details = result as string[];
-            }
+            if (newCvData.education[target.index]) newCvData.education[target.index].details = result as string[];
           } else if (target.section.startsWith('skills.') && target.field === 'skills' && Array.isArray(result) && target.index !== undefined) {
-            if (newCvData.skills[target.index]) {
-              newCvData.skills[target.index].skills = result as string[];
-            }
+            if (newCvData.skills[target.index]) newCvData.skills[target.index].skills = result as string[];
           }
           return newCvData;
         });
@@ -231,24 +192,26 @@ const EditorPage: React.FC = () => {
       setGeminiStatus(GeminiRequestStatus.ERROR);
       setActiveGeminiAction(null);
     }
-  }, [cvData.experience.length]);
+  }, [cvData.experience.length, auth.token]); // Added auth.token
 
   const handleTailorCvRequest = useCallback(async (jobDescription: string, currentCvData: CVData, applyDetailedUpdates: boolean) => {
+    if (!auth.token) {
+      setGeminiError("Please log in to tailor your CV.");
+      setGeminiStatus(GeminiRequestStatus.ERROR);
+      return;
+    }
     setActiveGeminiAction('tailor_cv');
     setGeminiStatus(GeminiRequestStatus.LOADING);
     setGeminiError(null);
     try {
-        const result = await generateCVContent(
+        const result = await generateCVContent( // Pass auth.token
+            auth.token,
             'tailor_cv_to_job_description',
             jobDescription,
-            {
-                existingCV: currentCvData,
-                applyDetailedExperienceUpdates: applyDetailedUpdates
-            }
+            { existingCV: currentCvData, applyDetailedExperienceUpdates: applyDetailedUpdates }
         ) as TailoredCVUpdate;
-
         startTransition(() => {
-            setCVData(prevCvData => {
+            setCVData(prevCvData => { /* ... (rest of the logic remains same) ... */
                 const newCvData = JSON.parse(JSON.stringify(prevCvData));
                 newCvData.summary = result.updatedSummary;
                 newCvData.skills = result.updatedSkills.map(updatedSkill => {
@@ -279,97 +242,66 @@ const EditorPage: React.FC = () => {
         setGeminiStatus(GeminiRequestStatus.ERROR);
         setActiveGeminiAction(null);
     }
-  }, []);
+  }, [auth.token]); // Added auth.token
 
   const handleSaveCv = async () => {
-    if (!currentCvId) {
-      // This case should ideally trigger a "Save As" or initial save if CV is new but not yet saved.
-      // For now, if no currentCvId, it implies it's a new CV not yet processed by handleInitialCvGeneration's save.
-      // Or, it could be a CV that was never saved and user hit a generic "Save" button.
-      // A robust solution would be to call something like handleInitialCvGeneration's save portion.
-      // For simplicity here: if no ID, try to save as new.
-      console.log("Save clicked, but no currentCvId. Trying to save as new.");
-      // We need the "generation mode" if we call handleInitialCvGeneration. This is tricky.
-      // Alternative: Directly call the POST logic if cvData is populated.
-      const token = getAuthToken();
-      if (token && cvData && cvData.personalInfo.name) { // Ensure cvData is populated
-        setGeminiStatus(GeminiRequestStatus.LOADING);
-        setActiveGeminiAction('saving_cv'); // Indicate save operation is in progress
-        try {
-            const response = await fetch('/api/cvs', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ cv_data: cvData, template_id: currentTemplateId || 'classic', name: cvData.personalInfo.name || 'Untitled CV' })
-            });
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.message || `Failed to save new CV (HTTP ${response.status})`);
-            }
-            const savedCv = await response.json();
-            setCurrentCvId(savedCv.id);
-            setGeminiStatus(GeminiRequestStatus.SUCCESS);
-            console.log("CV saved as new with ID:", savedCv.id);
-            setActiveGeminiAction('save_cv_success');
-            setTimeout(() => setActiveGeminiAction(null), 3000);
-        } catch (error) {
-            console.error("Error saving new CV via Save button:", error);
-            setGeminiError(error instanceof Error ? error.message : "Failed to save CV.");
-            setGeminiStatus(GeminiRequestStatus.ERROR);
-            setActiveGeminiAction(null); // Clear saving action on error
-        }
-      } else if (!token) {
-        setGeminiError("Cannot save CV: Not authenticated.");
-      } else {
-        setGeminiError("Cannot save CV: CV data is incomplete.");
-      }
-      return;
-    }
-
-    // If currentCvId exists, update existing CV
-    const token = getAuthToken();
-    if (!token) {
+    if (!auth.token) {
       setGeminiError("Authentication required to save CV.");
-      // navigate('/login');
+      navigate('/login', { state: { from: location } });
       return;
     }
-
     setGeminiStatus(GeminiRequestStatus.LOADING);
-    setActiveGeminiAction('saving_cv'); // Indicate save operation is in progress
+    setActiveGeminiAction('saving_cv');
+    setGeminiError(null);
+
+    const cvPayload = {
+      cv_data: cvData,
+      template_id: currentTemplateId || 'classic',
+      name: cvData.personalInfo.name || 'Untitled CV'
+    };
+
     try {
-      const response = await fetch(`/api/cvs/${currentCvId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ cv_data: cvData, template_id: currentTemplateId || 'classic', name: cvData.personalInfo.name }), // Adjust payload as needed
-      });
+      let response;
+      if (currentCvId) { // Update existing CV
+        response = await fetch(`/api/cvs/${currentCvId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
+          body: JSON.stringify(cvPayload),
+        });
+      } else { // Create new CV
+        response = await fetch('/api/cvs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
+          body: JSON.stringify(cvPayload)
+        });
+      }
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.message || `Failed to update CV (HTTP ${response.status})`);
+        throw new Error(errData.message || `Failed to ${currentCvId ? 'update' : 'save'} CV (HTTP ${response.status})`);
       }
-
-      const updatedCv = await response.json(); // Get updated CV (might include new updated_at)
+      const savedCv = await response.json();
       startTransition(() => {
-        // Optionally update cvData if backend modifies it (e.g. updated_at)
-        // setCVData(updatedCv.cv_data);
+        if (!currentCvId && savedCv.id) {
+          setCurrentCvId(savedCv.id);
+          navigate(`/editor/${savedCv.id}`, { replace: true }); // Update URL if new CV saved
+        }
+        // Optionally update cvData if backend modifies it (e.g. updated_at), though often not necessary for cv_data itself
+        // setCVData(savedCv.cv_data);
         setGeminiStatus(GeminiRequestStatus.SUCCESS);
-         console.log("CV updated successfully:", updatedCv);
         setActiveGeminiAction('save_cv_success');
-        setTimeout(() => setActiveGeminiAction(null), 3000); // Clear message
-        // Add user feedback (e.g., a toast message "CV Saved!")
+        setTimeout(() => setActiveGeminiAction(null), 3000);
+        console.log(`CV ${currentCvId ? 'updated' : 'saved as new'} with ID:`, savedCv.id);
       });
-
     } catch (err) {
-      console.error("Error updating CV:", err);
-      setGeminiError(err instanceof Error ? err.message : "Failed to save CV updates.");
+      console.error(`Error ${currentCvId ? 'updating' : 'saving'} CV:`, err);
+      setGeminiError(err instanceof Error ? err.message : "Failed to save CV.");
       setGeminiStatus(GeminiRequestStatus.ERROR);
-      setActiveGeminiAction(null); // Clear saving action on error
+      setActiveGeminiAction(null);
     }
   };
 
-  const handleDownloadPDF = useCallback(() => {
+  const handleDownloadPDF = useCallback(() => { /* ... (logic remains same) ... */
     const scaleBeforePdf = currentTheme.previewScale || 1;
     startTransition(() => {
         setIsPdfGenerating(true);
@@ -402,8 +334,8 @@ const EditorPage: React.FC = () => {
     }, 250);
   }, [currentTheme.previewScale, cvData.personalInfo.name, currentTheme.backgroundColor]);
 
-  const tailwindColorToHex = (twColor: string): string | null => {
-    if (twColor.startsWith('gray-')) return '#F9FAFB';
+  const tailwindColorToHex = (twColor: string): string | null => { /* ... (logic remains same) ... */
+    if (twColor.startsWith('gray-')) return '#F9FAFB'; // Example, not exhaustive
     if (twColor === 'white') return '#FFFFFF';
     if (twColor === 'black') return '#000000';
     const colorMap: {[key:string]: string} = { 'slate-50': '#F8FAFC', 'slate-100': '#F1F5F9', 'blue-50': '#EFF6FF', 'blue-600': '#2563EB', };
@@ -412,110 +344,87 @@ const EditorPage: React.FC = () => {
 
   useEffect(() => {
     const loadCv = async () => {
-      const token = getAuthToken(); // Needed for API calls
-
-      if (cvId) { // cvId from useParams
-        console.log("EditorPage: Attempting to load CV with id:", cvId);
-        if (!token) {
-          console.error("No auth token available to load CV.");
-          setGeminiError("Authentication required to load CV.");
-          // navigate('/login'); // Optionally redirect to login
+      if (!auth.token && cvId) { // Check for token if cvId is present
+          console.error("EditorPage: No auth token, cannot load CV from backend.");
+          setGeminiError("Authentication required to load this CV. Please log in.");
+          setIsEditorReady(true); // Stop loading, show error
+          navigate('/login', { state: { from: location } });
           return;
-        }
-        setGeminiStatus(GeminiRequestStatus.LOADING);
+      }
+
+      if (cvId) {
+        console.log("EditorPage: Attempting to load CV with id:", cvId);
+        setGeminiStatus(GeminiRequestStatus.LOADING); // Use general loading state
+        setActiveGeminiAction('loading_cv');
         try {
           const response = await fetch(`/api/cvs/${cvId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${auth.token}` } // Use auth.token
           });
           if (!response.ok) {
             if (response.status === 404) throw new Error(`CV with ID ${cvId} not found.`);
-            if (response.status === 401) throw new Error(`Unauthorized to fetch CV ${cvId}.`);
-            throw new Error(`Failed to fetch CV: ${response.statusText}`);
+            if (response.status === 401) throw new Error(`Unauthorized to fetch CV ${cvId}. Please log in again.`);
+            const errData = await response.json().catch(() => null);
+            throw new Error(errData?.message || `Failed to fetch CV: ${response.statusText}`);
           }
-          const data: CVData & { id: string; template_id?: string | number; name?: string } = await response.json();
+          // Assuming the backend returns the CV object directly with cv_data field
+          const data = await response.json();
 
           startTransition(() => {
-            setCVData(data.cv_data); // Assuming data is the full record, and cv_data is the field with actual CV content
+            setCVData(data.cv_data || INITIAL_CV_DATA); // Ensure cv_data is the source
             setCurrentCvId(data.id);
-            setCurrentTemplateId(data.template_id || 'classic'); // Set template ID
-            // TODO: Potentially load/set theme based on template_id or CV theme settings
+            setCurrentTemplateId(data.template_id || 'classic');
+            // TODO: Load theme based on template_id or saved theme with CV
             setGeminiStatus(GeminiRequestStatus.IDLE);
-            setIsEditorReady(true); // Editor is ready with loaded data
+            setActiveGeminiAction(null);
+            setIsEditorReady(true);
           });
         } catch (err) {
           console.error("Error loading CV:", err);
           setGeminiError(err instanceof Error ? err.message : "Failed to load CV data.");
           setGeminiStatus(GeminiRequestStatus.ERROR);
-          // navigate('/'); // Optionally redirect to landing or dashboard
+          setActiveGeminiAction(null);
+          setIsEditorReady(true); // Allow UI to render with error
+          // navigate('/'); // Optional: redirect on critical load error
         }
-      } else if (location.state && Object.keys(location.state).length > 0) { // Check if location.state has content
-        console.log("EditorPage: Initializing with location state:", location.state);
+      } else if (location.state && (location.state.jobTitle || location.state.jobDescription)) {
         const { jobTitle, jobDescription, selectedTemplateId } = location.state as any;
-
-        // TODO: Set theme based on selectedTemplateId if applicable
-        // if (selectedTemplateId) { /* logic to find and set theme */ }
-
         if (jobTitle) {
-          handleInitialCvGeneration(jobTitle, 'title' as InitialInputType, selectedTemplateId);
+          handleInitialCvGeneration(jobTitle, 'title', selectedTemplateId);
         } else if (jobDescription) {
-          handleInitialCvGeneration(jobDescription, 'description' as InitialInputType, selectedTemplateId);
-        } else {
-            // No specific data from landing page, load from local storage or default
-            const savedCVData = localStorage.getItem('geminiCVData');
-            if (savedCVData) {
-                try {
-                    setCVData(JSON.parse(savedCVData));
-                } catch (e) { console.error("Error parsing saved CV data", e); setCVData(INITIAL_CV_DATA); }
-            } else {
-                setCVData(INITIAL_CV_DATA);
-            }
-            setIsEditorReady(true); // Ready with local/default data
+          handleInitialCvGeneration(jobDescription, 'description', selectedTemplateId);
         }
-        // Clear location state after using it to prevent re-triggering on refresh if not desired
-        navigate(location.pathname, { replace: true, state: {} });
+        navigate(location.pathname, { replace: true, state: {} }); // Clear location state
       } else {
-        // No cvId and no location state, load from localStorage or start fresh.
-        console.log("EditorPage: No cvId or location.state. Loading from localStorage or default.");
-        const savedCVData = localStorage.getItem('geminiCVData');
-        const savedTheme = localStorage.getItem('geminiCVTheme');
-        if (savedCVData) {
-            try {
-                setCVData(JSON.parse(savedCVData));
-            } catch (e) { console.error("Error parsing saved CV data", e); setCVData(INITIAL_CV_DATA); }
-        } else {
-            setCVData(INITIAL_CV_DATA);
-        }
-        if (savedTheme) {
-            try {
-                setCurrentTheme(JSON.parse(savedTheme));
-            } catch (e) { console.error("Error parsing saved theme", e); setCurrentTheme(DEFAULT_THEME); }
-        }
-        setIsEditorReady(true); // Ready with local/default data
+        // No cvId and no specific location state for generation, start fresh or from unsaved local changes (if any)
+        // For now, starting fresh as localStorage for CVData is removed.
+        // If user is not logged in, they can still use the editor with INITIAL_CV_DATA.
+        // Saving will require login.
+        console.log("EditorPage: No cvId or generation state. Initializing fresh editor.");
+        setCVData(INITIAL_CV_DATA);
+        setCurrentTheme(DEFAULT_THEME);
+        setCurrentCvId(null);
+        setIsEditorReady(true);
       }
     };
 
+    if (auth.isLoading) { // Wait for auth state to be initialized
+        setIsEditorReady(false); // Not ready yet
+        return;
+    }
     loadCv();
-  }, [cvId, location.state, navigate]); // location.key could be added if we need to re-trigger on same path nav
+  }, [cvId, auth.isLoading, auth.token, navigate, location]); // location.state removed to avoid re-trigger from its own clearing. Added auth.isLoading and auth.token
 
-  if (!isEditorReady) {
+  if (!isEditorReady || auth.isLoading) { // Check auth.isLoading as well
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
-        <LoadingSpinner message={geminiStatus === GeminiRequestStatus.LOADING ? "Loading CV Editor..." : "Initializing..."} />
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <LoadingSpinner message={activeGeminiAction === 'loading_cv' ? "Loading CV..." : "Initializing Editor..."} />
       </div>
     );
   }
 
-  return (
+  return ( /* ... (JSX remains largely the same, ensure buttons that require auth are disabled if !auth.isAuthenticated) ... */
     <>
-    {/* <div className="flex flex-col h-screen font-sans antialiased"> // Original top-level div, might be adjusted by layout component */}
-    {/* Header removed, will be provided by AppLayout */}
-    // <header className="bg-slate-800 text-white p-4 shadow-md flex justify-between items-center">
-    //   <h1 className="text-xl font-semibold">JD2CV</h1>
-    //   <button onClick={handleDownloadPDF} disabled={isPdfGenerating || geminiStatus === GeminiRequestStatus.LOADING} className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md text-sm flex items-center gap-2 disabled:opacity-50" aria-label="Download CV as PDF">
-    //       <DownloadIcon className="w-4 h-4"/>{isPdfGenerating ? 'Generating...' : 'Download PDF'}
-    //   </button>
-    // </header>
-    <div className="flex flex-1 overflow-hidden"> {/* This becomes the top-level div for EditorPage content */}
+    <div className="flex flex-1 overflow-hidden">
       <aside className="w-1/3 max-w-md bg-slate-200 p-1 flex flex-col border-r border-slate-300">
             <nav className="flex mb-2 rounded-md bg-slate-300 p-0.5">
                 <button onClick={() => setActivePanel('content')} className={`flex-1 p-2 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${activePanel === 'content' ? `bg-white text-blue-600 shadow-sm` : `text-slate-600 hover:bg-slate-100`}`} aria-pressed={activePanel === 'content'}>
@@ -525,7 +434,6 @@ const EditorPage: React.FC = () => {
                     <PaletteIcon className="w-4 h-4"/> Theme
                 </button>
             </nav>
-          {/* Template Selector */}
           <div className="p-2 mt-1 mb-2 border-t border-b border-slate-300">
             <label htmlFor="templateSelector" className="block text-sm font-medium text-gray-700 mb-1">CV Template</label>
             <select
@@ -534,24 +442,21 @@ const EditorPage: React.FC = () => {
               onChange={(e) => { const newTemplateId = e.target.value; setCurrentTemplateId(newTemplateId); trackEvent('select_template_editor', { event_category: 'Template Selection', event_label: `Template ID: ${newTemplateId} (Editor)` }); }}
               className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
-              {/* These values should match the template IDs used in CVPreview and backend */}
               <option value="classic">Classic</option>
               <option value="modern">Modern</option>
-              {/* TODO: Fetch these template options dynamically from /api/cv-templates */}
             </select>
           </div>
-        {/* Save CV Button */}
         {isEditorReady && (
           <div className="p-2 mt-2">
             <button
               onClick={handleSaveCv}
-              disabled={geminiStatus === GeminiRequestStatus.LOADING || (geminiStatus === GeminiRequestStatus.SUCCESS && activeGeminiAction === 'save_cv_success') }
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+              disabled={!auth.isAuthenticated || geminiStatus === GeminiRequestStatus.LOADING || (geminiStatus === GeminiRequestStatus.SUCCESS && activeGeminiAction === 'save_cv_success') }
+              title={!auth.isAuthenticated ? "Please log in to save your CV" : "Save CV to Cloud"}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {/* Add an icon if available, similar to DownloadIcon */}
               {(geminiStatus === GeminiRequestStatus.LOADING && activeGeminiAction === 'saving_cv') ? 'Saving...' : (geminiStatus === GeminiRequestStatus.SUCCESS && activeGeminiAction === 'save_cv_success' ? 'Saved!' : 'Save CV to Cloud')}
             </button>
-            {/* A success message could be shown here based on geminiStatus */}
+            {!auth.isAuthenticated && <p className="text-xs text-red-500 text-center mt-1">Login required to save.</p>}
             {geminiStatus === GeminiRequestStatus.SUCCESS && activeGeminiAction === 'save_cv_success' && (
                 <p className="text-green-700 text-xs text-center mt-1">CV Saved!</p>
             )}
@@ -568,16 +473,9 @@ const EditorPage: React.FC = () => {
             </div>
         </main>
       </div>
-      {/* Footer removed, will be provided by AppLayout */}
-      {/* <footer className="bg-slate-800 text-white text-xs p-3 text-center">
-        <p> <strong>Privacy Notice:</strong> To provide and improve our services, JD2CV may share your data with third-party AI tools to generate and optimize your CV. By using JD2CV, you consent to this data processing. We are committed to ensuring our practices are UK and EU friendly. </p>
-      </footer> */}
        {(geminiStatus === GeminiRequestStatus.LOADING || isPdfGenerating) && ( <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" aria-live="assertive" role="alertdialog"> <LoadingSpinner message={ isPdfGenerating ? "Generating PDF..." : activeGeminiAction === 'tailor_cv' ? "JD2CV AI is tailoring your CV..." : activeGeminiAction === 'initial_cv_title' || activeGeminiAction === 'initial_cv_jd' ? "JD2CV AI is crafting your initial CV..." : (geminiStatus === GeminiRequestStatus.LOADING ? "JD2CV AI is thinking..." : "Processing...") } size="w-12 h-12" /> </div> )}
       {geminiError && activePanel !== 'content' && ( <div className="fixed bottom-4 right-4 z-50"> <ErrorMessage message={geminiError} onClear={clearGeminiError} /> </div> )}
-    {/* // </div> // Corresponding end for original top-level div */}
     </>
   );
 };
-// Type alias for inputType in handleInitialCvGeneration
-type InitialInputType = 'title' | 'description';
 export default EditorPage;
